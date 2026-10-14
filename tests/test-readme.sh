@@ -77,7 +77,8 @@ repo_tokens |= {f for f in ("install-helper.sh", "LICENSE", "preview.png", "Pane
 for tok in sorted(repo_tokens):
     hits = [h for p in brace(tok) for h in glob.glob(os.path.join(root, p))]
     out("PASS" if hits else "FAIL", f"README names {tok}, which {'exists' if hits else 'does NOT exist'} in the repo")
-for link in sorted(set(re.findall(r"\]\(([^)#\s]+)(?:#[^)]*)?\)", readme))):
+links = set(re.findall(r"\]\(([^)#\s]+)(?:#[^)]*)?\)", readme)) | set(re.findall(r"<img[^>]*\ssrc=\"([^\"]+)\"", readme))
+for link in sorted(links):
     if link.startswith(("http://", "https://", "mailto:")):
         continue
     out("PASS" if os.path.exists(os.path.join(root, link)) else "FAIL", f"README link ({link}) resolves")

@@ -3,7 +3,7 @@
 Control your ThinkPad's fan from the Omarchy bar. One icon opens a panel styled like the built-in wifi and bluetooth
 panels, and it follows your theme.
 
-![the fan panel](docs/panel.png)
+<img src="docs/panel.png" width="507" alt="the fan panel">
 
 - **Live fan RPM** and a two-minute history graph
 - **Three curve profiles**: Quiet, Balanced and Performance, smooth [thinkfan](https://github.com/vmatare/thinkfan)
@@ -127,6 +127,14 @@ Worth knowing:
 - Everything is a plain package: `pacman -Ql omarchy-fan-helper` lists it, `pacman -Rns omarchy-fan-helper` removes it.
 - With thinkfan running, the ThinkPad's firmware still has its own thermal protection, and every profile reaches full
   speed well below the CPU's critical temperature.
+
+## Updating
+
+    omarchy plugin update io.github.gunz0blazin.thinkpad-fan
+    omarchy restart shell
+
+The Omarchy shell doesn't reload plugin code by itself, so the restart (the bar redraws for a second) is what makes the
+new version run.
 
 ## Uninstall
 
