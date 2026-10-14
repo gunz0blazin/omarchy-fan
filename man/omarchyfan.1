@@ -241,9 +241,26 @@ prompt was cancelled).
 omarchy plugin remove io.github.gunz0blazin.thinkpad\-fan
 rm \-f ~/.local/bin/omarchyfan ~/.local/share/man/man1/omarchyfan.1
 rm \-f ~/.local/bin/omarchy\-fan ~/.local/share/man/man1/omarchy\-fan.1
+rm \-rf ~/.config/omarchy/fan
 sudo systemctl disable \-\-now thinkfan
-sudo pacman \-Rns omarchy\-fan\-helper
+sudo pacman \-Rns omarchy\-fan\-helper $(pacman \-Qq thinkfan thinkfan\-debug 2>/dev/null)
+sudo rm \-f /etc/thinkfan.yaml
+rm \-rf ~/.cache/yay/thinkfan
 .fi
+.PP
+That removes everything the plugin put on the system. The
+.B pacman
+line also removes
+.B thinkfan
+(and the
+.B thinkfan\-debug
+package the AUR build adds); delete the
+.B $(pacman ...)
+part if you used thinkfan before this plugin and want to keep it. If you had your own
+.I /etc/thinkfan.yaml
+before, the helper saved it as
+.IR /etc/thinkfan.yaml.omarchy\-fan.bak :
+move it back after the steps above.
 .PP
 Removing the plugin alone does not stop thinkfan: the fan keeps running on the last curve you chose until you disable
 the service.

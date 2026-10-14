@@ -130,11 +130,22 @@ Worth knowing:
 
 ## Uninstall
 
+This removes everything the plugin put on your system, and nothing else:
+
     omarchy plugin remove io.github.gunz0blazin.thinkpad-fan
     rm -f ~/.local/bin/omarchyfan ~/.local/share/man/man1/omarchyfan.1   # the links the plugin made
     rm -f ~/.local/bin/omarchy-fan ~/.local/share/man/man1/omarchy-fan.1 # ...and the legacy ones
+    rm -rf ~/.config/omarchy/fan                 # your saved choices (profile, manual level, follow switch)
     sudo systemctl disable --now thinkfan        # gives the fan back to the firmware
-    sudo pacman -Rns omarchy-fan-helper          # removes the helper, polkit policy and curves
+    sudo pacman -Rns omarchy-fan-helper $(pacman -Qq thinkfan thinkfan-debug 2>/dev/null)
+    sudo rm -f /etc/thinkfan.yaml                # the curve the helper wrote
+    rm -rf ~/.cache/yay/thinkfan                 # the build cache from installing thinkfan
+
+- The `pacman` line removes the helper, its polkit policy, curves and drop-ins, and also `thinkfan` and the
+  `thinkfan-debug` package the AUR build adds, plus any dependency nothing else needs. **If you used thinkfan before
+  this plugin and want to keep it, delete `$(pacman -Qq thinkfan thinkfan-debug 2>/dev/null)` from that line.**
+- If you had your own `/etc/thinkfan.yaml` before, the helper saved it as `/etc/thinkfan.yaml.omarchy-fan.bak`: put
+  it back with `sudo mv /etc/thinkfan.yaml.omarchy-fan.bak /etc/thinkfan.yaml` (that file is only there in that case).
 
 Removing the plugin alone does **not** stop thinkfan: the fan keeps running on the last curve you chose until you
 disable the service.
@@ -193,7 +204,7 @@ All the tests live in `tests/` and are run by hand. They are grouped by how much
 | **local** | a throwaway home directory | `tests/test-cli-link.sh` |
 | **shell** | briefly uses, and for one test disables and re-enables, the plugin in your running bar | `tests/test-panel.sh`, `tests/test-follow.sh` |
 | **hardware** | changes your fan profile (and, for the follower test, your power profile), then restores them | `tests/test-helper.sh`, `tests/test-effect.sh` |
-| **destructive** | needs sudo; stops and kills thinkfan on purpose, then starts it again | `tests/test-failsafe.sh` |
+| **destructive** | needs sudo; stops and kills thinkfan on purpose, then starts it again; removes the plugin and puts it back | `tests/test-failsafe.sh`, `tests/test-uninstall.sh` |
 
 What each one checks:
 
@@ -219,6 +230,9 @@ What each one checks:
 - `test-failsafe.sh`: after thinkfan is stopped (cleanly or killed), the fan returns to firmware control once the
   ThinkPad's 120 s fan watchdog fires. Takes about five minutes. A crash leaving the fan at its last level until then,
   and thinkfan not restarting itself, are recorded as known gaps.
+- `test-uninstall.sh`: runs the README's own Uninstall commands, then checks nothing of the plugin is left on the system
+  (packages, files, links, saved state, services, the bar entry, anything else with its name), and installs the plugin
+  again afterwards. Needs sudo, network and an idle laptop; takes a few minutes.
 
 Every script prints `passed`, `failed` and `skipped` counts, so a skipped check can't pass for a real one. A script that
 cannot run on this machine (not a ThinkPad, no sudo, no plugin in the bar) exits with status 77 and says why. The

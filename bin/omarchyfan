@@ -77,7 +77,8 @@ case "${1:-status}" in
     pkexec "$HELPER" set "$1" || exit 1
     echo "$1" > "$dir/active" ;;
   manual)
-    n=${2:?level 0-8}; [[ $n =~ ^[0-8]$ ]] || { echo "level must be 0-8 (8 = full speed)"; exit 1; }
+    n=$2; [ -n "$n" ] || { echo "usage: omarchyfan manual 0-8   (0 is off, 8 is full speed)"; exit 1; }
+    [[ $n =~ ^[0-8]$ ]] || { echo "level must be 0-8 (8 = full speed)"; exit 1; }
     pkexec "$HELPER" set manual "$n" || exit 1
     echo "$n" > "$dir/manual-level"
     echo manual > "$dir/active" ;;
