@@ -66,15 +66,19 @@ The plugin puts `omarchyfan` on your PATH by itself: the first time the fan widg
 `~/.local/share/man/man1/` (which `man` searches by default). Open a new terminal after installing. It never
 overwrites a real file with either name, and it fixes the links if the plugin folder moves.
 
+**Legacy name.** The command used to be `omarchy-fan` (with a hyphen). That still works for now, as a small forwarder
+(`bin/omarchy-fan`) with its own links and man page, so existing scripts keep working. In a terminal it prints a
+one-line notice that the name is old. **It will be removed in a future release**, so switch scripts to `omarchyfan`.
+
 ## What it installs, and why
 
 Changing the fan needs root, so the plugin is split in two.
 
 **The plugin runs as you.** `Panel.qml` draws the widget, `bin/omarchyfan` is the CLI the panel calls, and
 `bin/omarchy-fan-follow` (started by the panel, stopped when the shell stops) listens for power-profile changes over
-D-Bus. Your choices live in `~/.config/omarchy/fan/`. The follower also makes the two links described under
-CLI (`~/.local/bin/omarchyfan` and the man page), the only files the plugin writes outside its own folder and
-`~/.config/omarchy/fan/`.
+D-Bus. Your choices live in `~/.config/omarchy/fan/`. The follower also makes the links described under
+CLI (`omarchyfan` and its man page, plus the legacy `omarchy-fan` pair), the only files the plugin writes outside its own
+folder and `~/.config/omarchy/fan/`.
 
 **A small root helper, as a normal pacman package** (`omarchy-fan-helper`, built from
 [`packaging/PKGBUILD`](packaging/PKGBUILD) on your machine). It installs exactly these files:
@@ -103,6 +107,7 @@ Worth knowing:
 
     omarchy plugin remove io.github.gunz0blazin.thinkpad-fan
     rm -f ~/.local/bin/omarchyfan ~/.local/share/man/man1/omarchyfan.1   # the links the plugin made
+    rm -f ~/.local/bin/omarchy-fan ~/.local/share/man/man1/omarchy-fan.1 # ...and the legacy ones
     sudo systemctl disable --now thinkfan        # gives the fan back to the firmware
     sudo pacman -Rns omarchy-fan-helper          # removes the helper, polkit policy and curves
 

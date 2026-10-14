@@ -167,9 +167,10 @@ Keep my fan setting even when the power profile changes.
 .I ~/.local/bin/omarchyfan
 This command: a link to the plugin's
 .IR bin/omarchyfan ,
-made by the plugin. A real file with that name is never replaced. (Before this name the command was called
-.BR omarchy\-fan ;
-the plugin removes its own old link.)
+made by the plugin. A real file with that name is never replaced. (The old name,
+.BR omarchy\-fan ,
+is kept as a legacy link, see
+.BR "LEGACY NAME" .)
 .TP
 .I ~/.local/share/man/man1/omarchyfan.1
 This page: a link to the plugin's
@@ -222,12 +223,27 @@ prompt was cancelled).
 .nf
 omarchy plugin remove io.github.gunz0blazin.thinkpad\-fan
 rm \-f ~/.local/bin/omarchyfan ~/.local/share/man/man1/omarchyfan.1
+rm \-f ~/.local/bin/omarchy\-fan ~/.local/share/man/man1/omarchy\-fan.1
 sudo systemctl disable \-\-now thinkfan
 sudo pacman \-Rns omarchy\-fan\-helper
 .fi
 .PP
 Removing the plugin alone does not stop thinkfan: the fan keeps running on the last curve you chose until you disable
 the service.
+.SH LEGACY NAME
+Before version 1.1 the command was called
+.B omarchy\-fan
+(with a hyphen). That name still works for now, so existing scripts and habits keep working: it is a small forwarder
+that runs
+.B omarchyfan
+with the same arguments and gives the same results. When it is run in a terminal it also prints a notice to standard
+error saying the name is old; scripts that capture its output are not affected. A matching, short manual page is
+installed too (see
+.BR omarchy\-fan (1)).
+.PP
+.B The old name will be removed in a future release.
+Switch scripts to
+.BR omarchyfan .
 .SH SEE ALSO
 .BR thinkfan (1),
 .BR thinkfan.yaml (5),

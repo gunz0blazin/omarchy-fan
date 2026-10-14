@@ -1,0 +1,7 @@
+#!/bin/bash
+# LEGACY NAME. The command is now called omarchyfan (no hyphen). This forwarder keeps old scripts, muscle memory and
+# full paths working for now; it will be removed in a future release. It does exactly what omarchyfan does.
+# The notice goes to stderr and only when stderr is a terminal, so scripts that read this command's output are not
+# disturbed.
+[ -t 2 ] && echo "omarchy-fan is the old name of this command and will be removed in a future release: use omarchyfan" >&2
+exec "$(dirname "$(readlink -f "$0")")/omarchyfan" "$@"
