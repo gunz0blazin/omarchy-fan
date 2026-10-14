@@ -1,96 +1,134 @@
 # ThinkPad Fan Control for Omarchy
 
-A bar widget for [Omarchy](https://omarchy.org) that controls a ThinkPad's fan. Click the fan icon and you get a
-panel in the same style as the wifi and bluetooth ones:
-
-- live fan RPM and a two-minute history graph
-- three curve profiles: **Quiet**, **Balanced**, **Performance** (a smooth thinkfan curve with hysteresis)
-- a **manual slider**: off, levels 1 to 7, or full speed
-- a **Follow power profile** switch: with it on, switching the power profile (power-saver, balanced, performance)
-  switches the fan profile too; with it off your fan setting stays until you change it
-
-It follows your theme (colors, fonts, panel style) because it is built from the same Omarchy UI components as the
-built-in panels. There is also a CLI, `bin/omarchy-fan quiet|balanced|performance|manual <0-8>|follow on|off|status`
-(put it on your PATH with `ln -s ~/.config/omarchy/plugins/io.github.gunz0blazin.thinkpad-fan/bin/omarchy-fan ~/.local/bin/`).
+Control your ThinkPad's fan from the Omarchy bar. One icon opens a panel styled like the built-in wifi and bluetooth
+panels, and it follows your theme.
 
 ![the fan panel](docs/panel.png)
 
-## Requirements
+- **Live fan RPM** and a two-minute history graph
+- **Three curve profiles**: Quiet, Balanced and Performance, smooth [thinkfan](https://github.com/vmatare/thinkfan)
+  curves with hysteresis, so the fan doesn't flutter
+- **A manual slider**: off, levels 1 to 7, or full speed
+- **Follow power profile**: switch the power profile and the fan profile follows (power-saver is Quiet, balanced is
+  Balanced, performance is Performance). Turn it off and your fan setting stays put until you change it
 
-- A ThinkPad using the `thinkpad_acpi` driver (written and tested on a T480s; any ThinkPad with `/proc/acpi/ibm/fan`
-  should work). On other laptops the widget hides itself.
-- Omarchy with the shell plugin system (`omarchy plugin ...`), `power-profiles-daemon` (the Omarchy default).
-- `thinkfan` (AUR) and a small root helper package, both installed for you, see below.
-
-## Install
+## Quick start
 
     omarchy plugin add https://github.com/gunz0blazin/omarchy-fan --enable
 
-Then open the fan icon in the bar. Because changing the fan needs root, the panel shows an **Install fan control**
-button the first time. It opens a terminal that runs `install-helper.sh`, which installs `thinkfan` from the AUR
-(through `omarchy-pkg-aur-add`), builds the small `omarchy-fan-helper` package from `packaging/PKGBUILD`, installs it
-with `makepkg -si` (you confirm it and type your sudo password there), and turns fan control on. You can run it
-yourself instead: `~/.config/omarchy/plugins/io.github.gunz0blazin.thinkpad-fan/install-helper.sh`.
+`omarchy plugin add` shows the usual "plugins run unsandboxed" warning and asks which part of the bar to put the icon
+in. Then:
 
-If you want a different spot in the bar, `omarchy plugin enable io.github.gunz0blazin.thinkpad-fan` asks where.
+1. Click the fan icon. The first time, the panel shows **Install fan control**.
+2. It opens a terminal that installs `thinkfan`, builds a small helper package and installs it (you confirm the
+   package and enter your sudo password there), and turns fan control on.
+3. Done: the panel now shows live RPM and the controls.
 
-## How it works, and what it changes on your system
+Prefer to do step 2 yourself? Run `install-helper.sh` from the plugin folder
+(`~/.config/omarchy/plugins/io.github.gunz0blazin.thinkpad-fan/`).
 
-The plugin has two halves.
+## Compatibility
 
-**The plugin (runs as you):** `Panel.qml` draws the widget, `bin/omarchy-fan` is the CLI the panel calls,
-and `bin/omarchy-fan-follow` (started by the panel, stops when the shell does) watches `power-profiles-daemon` over
-D-Bus. Your choices live in `~/.config/omarchy/fan/` (the active profile, the manual level, the follow flag).
+| | |
+|---|---|
+| **Tested on** | ThinkPad T480s (Intel), Omarchy with the shell plugin system |
+| **Should work on** | Any ThinkPad that exposes `/proc/acpi/ibm/fan` through `thinkpad_acpi`, Intel or AMD. The curves read the ThinkPad's own embedded-controller temperature, not a CPU-vendor sensor. Not tried on other models yet, reports welcome |
+| **Other laptops** | The widget hides itself when there is no `thinkpad_acpi` |
+| **Needs** | `power-profiles-daemon` (Omarchy default), `polkit`, `thinkfan` (AUR) |
 
-**The root helper (the `omarchy-fan-helper` package):** installs these files and nothing else:
+## The profiles
+
+Temperatures are the ThinkPad's CPU sensor reading.
+
+| Profile | Fan leaves "off" at | Fan is at full speed above | Feel |
+|---|---|---|---|
+| Quiet | about 65°C | about 92°C | Silent longest, runs warmest |
+| Balanced | about 56°C | about 85°C | Smooth curve, the default |
+| Performance | never off (level 1 minimum) | about 74°C | Cooler, spins up early |
+
+These are the files in [`profiles/`](profiles/), one row per fan level as `[level, lower temp, upper temp]`. Manual
+mode pins a single level instead of following a curve.
+
+## CLI
+
+The panel calls the same script you can use from a terminal:
+
+    omarchy-fan quiet|balanced|performance      # pick a curve
+    omarchy-fan manual 0-8                      # 0 is off, 8 is full speed
+    omarchy-fan follow on|off                   # follow the power profile or not
+    omarchy-fan status
+
+It lives in `bin/`; put it on your PATH with
+`ln -s ~/.config/omarchy/plugins/io.github.gunz0blazin.thinkpad-fan/bin/omarchy-fan ~/.local/bin/`.
+
+## What it installs, and why
+
+Changing the fan needs root, so the plugin is split in two.
+
+**The plugin runs as you.** `Panel.qml` draws the widget, `bin/omarchy-fan` is the CLI the panel calls, and
+`bin/omarchy-fan-follow` (started by the panel, stopped when the shell stops) listens for power-profile changes over
+D-Bus. Your choices live in `~/.config/omarchy/fan/`.
+
+**A small root helper, as a normal pacman package** (`omarchy-fan-helper`, built from
+[`packaging/PKGBUILD`](packaging/PKGBUILD) on your machine). It installs exactly these files:
 
 | File | What it is |
 |---|---|
-| `/usr/lib/omarchy-fan/helper` | The only thing that runs as root. It takes `set quiet\|balanced\|performance`, `set manual 0-8` or `enable`, and rejects anything else. It never takes a path or a config from the user: it builds `/etc/thinkfan.yaml` from the root-owned profiles below. |
-| `/usr/share/omarchy-fan/profiles/*.yaml` | The three thinkfan curves. |
-| `/usr/share/polkit-1/actions/org.omarchy.fan.policy` | Lets a user in a local, active session run that one helper without a password, the way brightness works. |
-| `/usr/lib/modprobe.d/omarchy-fan.conf` | `options thinkpad_acpi fan_control=1`, which thinkfan needs. |
-| `/usr/lib/systemd/system/thinkfan.service.d/omarchy-fan.conf` | Turns off systemd's start rate limit, because moving the slider restarts thinkfan. |
+| `/usr/lib/omarchy-fan/helper` | The only thing that runs as root. It accepts `set quiet\|balanced\|performance`, `set manual 0-8` or `enable`, and rejects everything else. It never takes a path or config from the caller: it builds `/etc/thinkfan.yaml` from the root-owned profiles below |
+| `/usr/share/omarchy-fan/profiles/*.yaml` | The three curves |
+| `/usr/share/polkit-1/actions/org.omarchy.fan.policy` | Lets a user in a local, active session run that one helper without a password, the way screen brightness works. There is no sudoers rule |
+| `/usr/lib/modprobe.d/omarchy-fan.conf` | `options thinkpad_acpi fan_control=1`, which thinkfan needs |
+| `/usr/lib/systemd/system/thinkfan.service.d/omarchy-fan.conf` | Turns off systemd's start rate limit, because moving the slider restarts thinkfan |
 
-If you already have your own `/etc/thinkfan.yaml`, the helper keeps the first copy as
-`/etc/thinkfan.yaml.omarchy-fan.bak` before it writes a profile, and it never replaces your config just by being
-installed. Restore it any time with `sudo cp /etc/thinkfan.yaml.omarchy-fan.bak /etc/thinkfan.yaml`.
+Worth knowing:
 
-Everything is a normal pacman package, so `pacman -Qlp`, `pacman -Ql omarchy-fan-helper` and `pacman -Rns` work as you'd
-expect. The curves use the ThinkPad's own embedded-controller temperature (`/proc/acpi/ibm/thermal`), not a
-CPU-vendor sensor, so Intel and AMD ThinkPads are treated the same.
-
-If thinkfan stops or the plugin is removed, the firmware takes the fan back. The fan is always at full speed well
-before the CPU's critical temperature.
+- `install-helper.sh` installs `thinkfan` with `omarchy-pkg-aur-add`, which uses `yay --noconfirm` and so **skips the
+  PKGBUILD review prompt**. If you want to read it first, install thinkfan yourself (`yay -S thinkfan`) before you
+  press the button, and the script will skip that step.
+- If you already have your own `/etc/thinkfan.yaml`, the helper saves the first copy as
+  `/etc/thinkfan.yaml.omarchy-fan.bak` before it writes a profile. Installing the helper alone never replaces it.
+  Restore with `sudo cp /etc/thinkfan.yaml.omarchy-fan.bak /etc/thinkfan.yaml`.
+- Everything is a plain package: `pacman -Ql omarchy-fan-helper` lists it, `pacman -Rns omarchy-fan-helper` removes it.
+- With thinkfan running, the ThinkPad's firmware still has its own thermal protection, and every profile reaches full
+  speed well below the CPU's critical temperature.
 
 ## Uninstall
 
     omarchy plugin remove io.github.gunz0blazin.thinkpad-fan
-    sudo pacman -Rns omarchy-fan-helper       # optional: removes the helper, policy and curves
-    sudo systemctl disable --now thinkfan     # optional: give the fan back to the firmware
+    sudo systemctl disable --now thinkfan        # gives the fan back to the firmware
+    sudo pacman -Rns omarchy-fan-helper          # removes the helper, polkit policy and curves
 
-## Change the curves
+Removing the plugin alone does **not** stop thinkfan: the fan keeps running on the last curve you chose until you
+disable the service.
 
-The curves are thinkfan YAML files, the three in [`profiles/`](profiles/). The helper reads the installed copies in
-`/usr/share/omarchy-fan/profiles/`, so edit those (or fork this repo, change `profiles/`, and rebuild the package with
-`cd packaging && makepkg -si`). Each row is `[fan level, lower temperature, upper temperature]`.
+## Customising the curves
+
+The helper reads the installed copies in `/usr/share/omarchy-fan/profiles/`. Edit those, or fork this repo, change
+`profiles/`, and rebuild with `cd packaging && makepkg -si`.
 
 ## Troubleshooting
 
-- **The icon isn't in the bar:** it only shows on a ThinkPad. Check `ls /proc/acpi/ibm/fan`.
-- **The panel says "Enable fan control":** the helper is installed but thinkfan isn't running or `fan_control` is off.
-  Press the button, or `pkexec /usr/lib/omarchy-fan/helper enable`.
-- **The slider doesn't hold or the fan resets:** turn off "Follow power profile". Changing the power profile (including
-  Omarchy changing it when you plug in) resets the fan while that switch is on.
-- **`fan_control` still reads N after setup:** `cat /sys/module/thinkpad_acpi/parameters/fan_control`. If the module
-  couldn't be reloaded, reboot once.
+- **No icon in the bar:** it only appears on a ThinkPad. Check `ls /proc/acpi/ibm/fan`. If it's there but the icon
+  isn't, make sure the plugin is in a bar section: it goes in the center by default, and you can move its id in
+  `~/.config/omarchy/shell.json` (`bar.layout`).
+- **Panel says "Enable fan control":** the helper is installed but thinkfan isn't running, or `fan_control` is off.
+  Press the button, or run `pkexec /usr/lib/omarchy-fan/helper enable`.
+- **The fan setting keeps resetting:** turn off "Follow power profile". Any power profile change, from any source,
+  resets the fan while it's on.
+- **`fan_control` still says N:** check `cat /sys/module/thinkpad_acpi/parameters/fan_control`. If the module couldn't
+  be reloaded, reboot once.
+- **A reading of 65535 RPM:** the controller reports that for a moment while the fan changes speed. The plugin ignores
+  it.
 
-## Tests
+## Development and tests
 
-    tests/check.sh           # manifest, shell syntax, QML lint (no hardware needed)
-    tests/test-helper.sh     # on a ThinkPad with the helper installed: curves, manual levels, restart storm, bad input
+    tests/check.sh           # manifest validation, shell syntax, QML lint (no hardware needed)
+    tests/test-helper.sh     # ThinkPad + helper installed: curves, manual levels, a restart storm, rejected input
+    tests/test-follow.sh     # the plugin running in the bar: power-profile following, follow on/off
+
+The last two change your fan and power profile while they run and put both back afterwards.
 
 ## Credits and license
 
-MIT, see [LICENSE](LICENSE). The panel layout follows the built-in Omarchy panels (MIT) so it matches them.
-thinkfan is by Evgeni Golov and contributors.
+MIT, see [LICENSE](LICENSE). The panel is built from the stock Omarchy UI components so it matches the built-in panels.
+Fan curves are driven by [thinkfan](https://github.com/vmatare/thinkfan).
