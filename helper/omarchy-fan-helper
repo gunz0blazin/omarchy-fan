@@ -35,13 +35,18 @@ case "$1" in
       *) echo "unknown profile" >&2; exit 2 ;;
     esac
     restart_thinkfan ;;
-  enable)
-    # thinkpad_acpi only lets thinkfan drive the fan with fan_control=1 (the package sets it for
-    # the next boot; this makes it true now) and thinkfan needs a config to start from.
+  ensure-module)
+    # Run by thinkfan.service just before it starts (see the zz-omarchy-fan.conf drop-in). thinkpad_acpi is
+    # often loaded very early at boot, from the initramfs, without our fan_control=1 option, and thinkfan
+    # then refuses to start. Reload the module with the option if it is off. Never fails the service start.
     if [ "$(cat /sys/module/thinkpad_acpi/parameters/fan_control 2>/dev/null)" != Y ]; then
-      modprobe -r thinkpad_acpi 2>/dev/null && modprobe thinkpad_acpi fan_control=1 \
-        || echo "couldn't reload thinkpad_acpi: reboot to enable fan_control" >&2
+      modprobe -r thinkpad_acpi 2>/dev/null || true
+      modprobe thinkpad_acpi fan_control=1 2>/dev/null || true
     fi
+    exit 0 ;;
+  enable)
+    # thinkfan needs fan_control=1 on thinkpad_acpi and a config to start from.
+    "$0" ensure-module
     [ -e /etc/thinkfan.yaml ] || install -m644 "$profiles/balanced.yaml" /etc/thinkfan.yaml
     systemctl enable --now thinkfan ;;
   *) echo "usage: helper set <quiet|balanced|performance> | set manual <0-8> | enable" >&2; exit 2 ;;

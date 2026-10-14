@@ -74,11 +74,11 @@ D-Bus. Your choices live in `~/.config/omarchy/fan/`.
 
 | File | What it is |
 |---|---|
-| `/usr/lib/omarchy-fan/helper` | The only thing that runs as root. It accepts `set quiet\|balanced\|performance`, `set manual 0-8` or `enable`, and rejects everything else. It never takes a path or config from the caller: it builds `/etc/thinkfan.yaml` from the root-owned profiles below |
+| `/usr/lib/omarchy-fan/helper` | The only thing that runs as root. It accepts `set quiet\|balanced\|performance`, `set manual 0-8`, `enable`, or `ensure-module` (run by thinkfan's service, see below), and rejects everything else. It never takes a path or config from the caller: it builds `/etc/thinkfan.yaml` from the root-owned profiles below |
 | `/usr/share/omarchy-fan/profiles/*.yaml` | The three curves |
 | `/usr/share/polkit-1/actions/org.omarchy.fan.policy` | Lets a user in a local, active session run that one helper without a password, the way screen brightness works. There is no sudoers rule |
-| `/usr/lib/modprobe.d/omarchy-fan.conf` | `options thinkpad_acpi fan_control=1`, which thinkfan needs |
-| `/usr/lib/systemd/system/thinkfan.service.d/omarchy-fan.conf` | Turns off systemd's start rate limit, because moving the slider restarts thinkfan |
+| `/usr/lib/modprobe.d/omarchy-fan.conf` | `options thinkpad_acpi fan_control=1`, which thinkfan needs whenever the driver is loaded normally |
+| `/usr/lib/systemd/system/thinkfan.service.d/omarchy-fan.conf` | Turns off systemd's start rate limit (moving the slider restarts thinkfan), and runs the helper's `ensure-module` just before thinkfan starts: at boot the driver is usually loaded early, from the initramfs, without `fan_control=1`, and thinkfan refuses to start until it is reloaded with it. A failure there never stops thinkfan from starting |
 
 Worth knowing:
 
