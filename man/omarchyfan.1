@@ -51,6 +51,9 @@ Hold the fan at one fixed level, ignoring temperature.
 is a whole number from 0 to 8: 0 is off, 1 to 7 are the ThinkPad's fan levels, and 8 is full speed. Anything else is
 rejected with a message and exit status 1. The level is remembered, and the active profile becomes
 .BR manual .
+A pinned level from 0 to 7 has a safety net: if the CPU reaches 85 degrees C the fan goes to full speed, and it returns to
+the pinned level once the CPU is below 80 degrees C. This keeps a pinned off or low level from overheating the CPU under
+load.
 .TP
 .B follow on | off
 Choose whether a change of power profile also changes the fan (see

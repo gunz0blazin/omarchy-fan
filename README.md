@@ -39,7 +39,9 @@ Temperatures are the ThinkPad's CPU sensor reading.
 | Performance | never off (level 1 minimum) | about 74°C | Cooler, spins up early |
 
 These are the files in [`profiles/`](profiles/), one row per fan level as `[level, lower temp, upper temp]`. Manual
-mode pins a single level instead of following a curve.
+mode pins a single level instead of following a curve, with one safety net: if the CPU reaches 85°C the fan jumps to
+full speed, and it goes back to your level once the CPU is below 80°C. So a pinned "off" or low level can't cook the
+CPU under load. (Full speed, level 8, is already the top.)
 
 ## Command line (CLI)
 
@@ -225,7 +227,7 @@ All the tests live in `tests/` and are run by hand. They are grouped by how much
 | **static** | reads files only | `tests/check.sh`, `tests/check-marketplace.sh`, `tests/test-readme.sh`, `tests/test-package.sh`, `tests/test-compat.sh` |
 | **local** | a throwaway home directory | `tests/test-cli-link.sh` |
 | **shell** | briefly uses, and for one test disables and re-enables, the plugin in your running bar | `tests/test-panel.sh`, `tests/test-follow.sh` |
-| **hardware** | changes your fan profile (and, for the follower test, your power profile), then restores them | `tests/test-helper.sh`, `tests/test-effect.sh` |
+| **hardware** | changes your fan profile (and, for the follower test, your power profile), then restores them; `test-safety.sh` also loads the CPU | `tests/test-helper.sh`, `tests/test-effect.sh`, `tests/test-safety.sh` |
 | **destructive** | needs sudo; stops and kills thinkfan on purpose, then starts it again; removes the plugin and puts it back | `tests/test-failsafe.sh`, `tests/test-uninstall.sh` |
 
 What each one checks:
@@ -249,6 +251,9 @@ What each one checks:
   the root helper rejects bad input without changing anything.
 - `test-effect.sh`: the fan really speeds up, slows down and stops (RPM, not just the requested level). Run it on an
   idle laptop; the fan gets loud for a few seconds.
+- `test-safety.sh`: the manual-mode safety net. Checks the config written for each manual level, then pins the fan off,
+  loads 2 CPU threads, and confirms the fan stays off while cool, goes to full speed at 85°C, holds the CPU there, and
+  drops back after the load ends. Stops everything at 97°C. Idle, cool laptop only; takes about 6 minutes.
 - `test-failsafe.sh`: after thinkfan is stopped (cleanly or killed), the fan returns to firmware control once the
   ThinkPad's 120 s fan watchdog fires. Takes about five minutes. A crash leaving the fan at its last level until then,
   and thinkfan not restarting itself, are recorded as known gaps.
