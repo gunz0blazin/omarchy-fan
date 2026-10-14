@@ -17,7 +17,7 @@ panels, and it follows your theme.
     omarchy plugin add https://github.com/gunz0blazin/omarchy-fan --enable
 
 `omarchy plugin add` shows the usual "plugins run unsandboxed" warning and asks which part of the bar to put the icon
-in (it suggests the right side, next to the volume and display icons). Then:
+in (it suggests the right side; you can move it later, see [Where it sits in the bar](#where-it-sits-in-the-bar)). Then:
 
 1. Click the fan icon. The first time, the panel shows **Install fan control**.
 2. It opens a terminal that installs `thinkfan`, builds a small helper package and installs it (you confirm the
