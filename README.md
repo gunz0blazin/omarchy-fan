@@ -41,7 +41,20 @@ Prefer to do step 2 yourself? Run `install-helper.sh` from the plugin folder
 Run `omarchyfan doctor`. It only reads, and prints one line per check (`ok`, `warn` or `FAIL`): the model, whether the
 `thinkpad_acpi` driver and its fan control are there, the fan levels, whether the fan speed and the temperature the
 curves follow can be read, and whether there is a second fan (the plugin only drives the first). A `FAIL` means it
-cannot work on that machine. If you try it on a model that isn't in the table, please open an issue with the output.
+cannot work on that machine.
+
+**Reporting a new model** (this is how a model gets added to the table):
+
+1. Install the plugin and run `omarchyfan doctor`. It only reads files.
+2. Optional, but it lets the model be added as a test fixture: run
+   `cat /proc/acpi/ibm/fan /proc/acpi/ibm/thermal; cat /sys/module/thinkpad_acpi/parameters/fan_control`.
+3. Optional, on an idle and cool laptop: clone the repo and run `bash tests/test-helper.sh` and
+   `bash tests/test-effect.sh`. They briefly change your fan (it gets loud for a few seconds) and restore your profile.
+4. Open a [Hardware report](https://github.com/gunz0blazin/omarchy-fan/issues/new?template=hardware-report.yml) issue
+   and paste the output into the form. Say whether each profile audibly changes the fan.
+
+A model is marked "Tested" once a report shows `doctor` with no `FAIL` and passing hardware tests, and its raw files are
+added to `tests/fixtures/`.
 
 | Model | Status |
 |---|---|

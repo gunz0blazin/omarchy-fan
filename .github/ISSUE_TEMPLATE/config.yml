@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Is my ThinkPad supported? (read this before a hardware report)
+    url: https://github.com/gunz0blazin/omarchy-fan#is-my-thinkpad-supported
+    about: What to run on your machine and what to include.

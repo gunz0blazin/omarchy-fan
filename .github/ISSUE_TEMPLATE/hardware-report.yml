@@ -1,0 +1,65 @@
+name: Hardware report (new ThinkPad model)
+description: Tell us whether the plugin works on your ThinkPad, so it can be added to the supported list.
+title: "Hardware report: <your model>"
+labels: ["hardware-report"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for testing! Please read **"Is my ThinkPad supported?"** in the README first. It takes about five minutes.
+        Steps 1 and 2 only read files, step 3 briefly moves your fan. Nothing here needs more than the plugin itself.
+  - type: input
+    id: model
+    attributes:
+      label: Model
+      description: The exact name, for example "ThinkPad T14 Gen 3 (AMD)". `omarchyfan doctor` prints it on the first line.
+    validations:
+      required: true
+  - type: textarea
+    id: doctor
+    attributes:
+      label: "Step 1: output of `omarchyfan doctor`"
+      description: Paste the whole thing. It only reads files.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: files
+    attributes:
+      label: "Step 2: the raw files (optional, but they let us add your model as a test fixture)"
+      description: |
+        Paste the output of:
+        `cat /proc/acpi/ibm/fan /proc/acpi/ibm/thermal; cat /sys/module/thinkpad_acpi/parameters/fan_control`
+      render: text
+  - type: dropdown
+    id: install
+    attributes:
+      label: Install status
+      options:
+        - Plugin installed and the panel opens
+        - Plugin installed but no icon in the bar
+        - Plugin installed but the panel says it needs setup / enable
+        - Could not install
+    validations:
+      required: true
+  - type: textarea
+    id: tests
+    attributes:
+      label: "Step 3: hardware tests (optional, moves your fan)"
+      description: |
+        On an idle, cool laptop, from a checkout of the repo, run `bash tests/test-helper.sh` and `bash tests/test-effect.sh`
+        and paste the last lines (the `N passed, N failed` summary and any FAIL lines). The fan gets loud for a few seconds
+        and your profile is restored afterwards. `tests/test-failsafe.sh` is optional and needs sudo.
+      render: text
+  - type: textarea
+    id: observations
+    attributes:
+      label: What you noticed
+      description: Does each profile change the fan speed? Does the temperature in the panel look right? Any second fan, odd noises, or errors?
+  - type: checkboxes
+    id: ok
+    attributes:
+      label: Before you submit
+      options:
+        - label: I removed anything private from the output I pasted (it contains no serial numbers, but check).
+          required: true
