@@ -1,27 +1,59 @@
 #!/bin/bash
-# Static checks, no hardware needed.
-cd "$(dirname "$(readlink -f "$0")")/.." || exit 1
-rc=0
-ok() { echo "  ok    $1"; }
-bad() { echo "  FAIL  $1"; rc=1; }
+# Tier: static. Reads files only, no hardware, no system changes. Works on any branch of this repo.
+. "$(dirname "$(readlink -f "$0")")/lib.sh"
+cd "$ROOT" || exit 1
 
-command -v omarchy >/dev/null && { omarchy plugin validate . >/dev/null 2>&1 && ok "plugin manifest validates" || bad "plugin manifest validates"; }
-for f in bin/omarchyfan bin/omarchy-fan bin/omarchy-fan-follow helper/omarchy-fan-helper install-helper.sh packaging/PKGBUILD; do
+if command -v omarchy >/dev/null; then
+  omarchy plugin validate . >/dev/null 2>&1 && ok "plugin manifest validates (omarchy plugin validate)" || bad "plugin manifest validates (omarchy plugin validate)"
+else
+  skip "omarchy plugin validate (the omarchy command is not installed)"
+fi
+
+# every script in the repo: bash syntax, and executable if it is meant to be run
+# (LEGACY: bin/omarchy-fan is the old command name and is picked up here automatically; it goes away with the name)
+scripts="bin/* helper/omarchy-fan-helper install-helper.sh tests/*.sh"
+for f in $scripts; do
+  [ -f "$f" ] || continue
   bash -n "$f" 2>/dev/null && ok "syntax $f" || bad "syntax $f"
+  [ "$f" = tests/lib.sh ] || { [ -x "$f" ] && ok "executable $f" || bad "executable $f"; }
 done
-for f in bin/omarchyfan bin/omarchy-fan bin/omarchy-fan-follow helper/omarchy-fan-helper install-helper.sh; do
-  [ -x "$f" ] && ok "executable $f" || bad "executable $f"
-done
+bash -n packaging/PKGBUILD 2>/dev/null && ok "syntax packaging/PKGBUILD" || bad "syntax packaging/PKGBUILD"
+
+# optional, but worth having: shellcheck catches quoting and logic slips in bash
+if command -v shellcheck >/dev/null; then
+  shellcheck -S warning -e SC1090,SC1091,SC2086,SC2155 bin/* helper/omarchy-fan-helper install-helper.sh >/dev/null 2>&1 \
+    && ok "shellcheck (warnings and above)" || bad "shellcheck (warnings and above)"
+else
+  skip "shellcheck (not installed: sudo pacman -S shellcheck)"
+fi
+
+# man pages (LEGACY: man/omarchy-fan.1 is the old command's page)
 if command -v groff >/dev/null; then
-  for m in man/omarchyfan.1 man/omarchy-fan.1; do
+  for m in man/*.1; do
+    [ -f "$m" ] || continue
     [ -z "$(groff -man -ww -z "$m" 2>&1)" ] && ok "$m has no groff warnings" || bad "$m has no groff warnings"
   done
+else
+  skip "man page lint (groff is not installed)"
 fi
+
 for y in profiles/*.yaml; do
-  grep -q '^levels:' "$y" && grep -q 'tpacpi: /proc/acpi/ibm/fan' "$y" && ok "profile $y" || bad "profile $y"
+  grep -q '^levels:' "$y" && grep -q 'tpacpi: /proc/acpi/ibm/fan' "$y" && ok "profile $y has levels and the fan line" || bad "profile $y has levels and the fan line"
 done
+
 qml=$(command -v qmllint || ls /usr/lib/qt6/bin/qmllint 2>/dev/null | head -1)
-[ -n "$qml" ] && { "$qml" Panel.qml 2>&1 | grep -qiE 'syntax|expected' && bad "qml lint Panel.qml" || ok "qml lint Panel.qml"; }
-! grep -rn 'decepticon\|ThemePalette\|TransformFx' Panel.qml >/dev/null && ok "no theme-specific dependencies" || bad "no theme-specific dependencies"
-xmllint --noout helper/org.omarchy.fan.policy 2>/dev/null && ok "polkit policy is valid XML" || echo "  skip  xmllint not available"
-exit $rc
+if [ -n "$qml" ]; then
+  "$qml" Panel.qml 2>&1 | grep -qiE 'syntax|expected' && bad "qmllint Panel.qml: no syntax errors" || ok "qmllint Panel.qml: no syntax errors"
+else
+  skip "qmllint (not installed)"
+fi
+
+grep -rn 'decepticon\|ThemePalette\|TransformFx' Panel.qml >/dev/null && bad "no theme-specific dependencies in Panel.qml" || ok "no theme-specific dependencies in Panel.qml"
+
+if command -v xmllint >/dev/null; then
+  xmllint --noout helper/org.omarchy.fan.policy 2>/dev/null && ok "polkit policy is valid XML" || bad "polkit policy is valid XML"
+else
+  skip "polkit policy XML check (xmllint is not installed)"
+fi
+
+finish

@@ -1,26 +1,38 @@
 #!/bin/bash
-# Needs the plugin running in the bar (it starts the follower) and the helper installed; restores power profile, fan profile and follow flag
-B=${1:-$(dirname "$(readlink -f "$0")")/../bin/omarchyfan}
-pass=0; failn=0
-t() { if [ "$2" = "$3" ]; then echo "  PASS  $1"; pass=$((pass+1)); else echo "  FAIL  $1 (got '$2', want '$3')"; failn=$((failn+1)); fi; }
-orig_pp=$(powerprofilesctl get); orig_fan=$($B current)
-t "follower running" "$(pgrep -f '^/usr/bin/bash [^ ]*/bin/omarchy-fan-follow$' | wc -l)" 1
+# Tier: shell. Needs the plugin running in the bar (the panel starts the follower) and the root helper installed.
+# Changes your power profile, fan profile and follow flag while it runs, and restores all three (also if interrupted).
+# Don't plug or unplug the charger meanwhile: Omarchy changes the power profile itself when you do.
+# Optional $1: path to the command (default: the one in this checkout).
+. "$(dirname "$(readlink -f "$0")")/lib.sh"
+[ -n "$1" ] && CLI=$1
+is_thinkpad || suite_skip "not a ThinkPad"
+[ "$(plugin_state)" = enabled ] || suite_skip "the plugin is not enabled in the bar (the follower only runs there)"
+[ "$(setup_state)" = ready ] || suite_skip "fan control is not set up (setup state: $(setup_state))"
 
-$B follow on; $B balanced; powerprofilesctl set balanced; sleep 2
+orig_pp=$(powerprofilesctl get); orig_fan=$("$CLI" current)
+orig_follow=$("$CLI" stats | awk -F'\t' '$1=="follow"{print $2}')
+ac0=$(cat /sys/class/power_supply/AC/online 2>/dev/null)
+restore() {
+  powerprofilesctl set "$orig_pp" >/dev/null 2>&1; sleep 3
+  case "$orig_fan" in manual) "$CLI" manual "$(cat ~/.config/omarchy/fan/manual-level 2>/dev/null || echo 3)" ;; *) "$CLI" "$orig_fan" ;; esac >/dev/null 2>&1
+  "$CLI" follow "$orig_follow" >/dev/null 2>&1
+}
+trap restore EXIT
+
+t "exactly one follower is running" "$(follower_count)" 1
+
+"$CLI" follow on; "$CLI" balanced; powerprofilesctl set balanced; sleep 2
 powerprofilesctl set power-saver; sleep 5
-t "follow on: power-saver -> quiet" "$($B current)" quiet
+t "follow on: power-saver -> quiet" "$("$CLI" current)" quiet
 powerprofilesctl set performance; sleep 5
-t "follow on: performance -> performance" "$($B current)" performance
-$B manual 5; sleep 2
-$B follow off
+t "follow on: performance -> performance" "$("$CLI" current)" performance
+"$CLI" manual 5; sleep 2
+"$CLI" follow off
 powerprofilesctl set balanced; sleep 5
-t "follow off: manual setting kept" "$($B current)" manual
-$B follow on
+t "follow off: the manual setting is kept" "$("$CLI" current)" manual
+"$CLI" follow on
 powerprofilesctl set power-saver; sleep 5
-t "follow back on: power-saver -> quiet" "$($B current)" quiet
+t "follow back on: power-saver -> quiet" "$("$CLI" current)" quiet
+t "the charger was not plugged or unplugged during the test (results would be unreliable)" "$(cat /sys/class/power_supply/AC/online 2>/dev/null)" "$ac0"
 
-powerprofilesctl set "$orig_pp"; sleep 4
-$B "$orig_fan" 2>/dev/null || $B balanced
-echo "restored: power=$(powerprofilesctl get) fan=$($B current) follow=$($B stats | awk -F'\t' '$1=="follow"{print $2}')"
-echo "$pass passed, $failn failed"
-[ $failn = 0 ]
+finish

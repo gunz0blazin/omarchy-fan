@@ -160,12 +160,40 @@ The helper reads the installed copies in `/usr/share/omarchy-fan/profiles/`. Edi
 
 ## Development and tests
 
-    tests/check.sh           # manifest validation, shell syntax, QML lint (no hardware needed)
-    tests/test-helper.sh     # ThinkPad + helper installed: curves, manual levels, a restart storm, rejected input
-    tests/test-follow.sh     # the plugin running in the bar: power-profile following, follow on/off
-    tests/test-cli-link.sh   # the command and man-page links, in a throwaway home (no fan changes)
+All the tests live in `tests/` and are run by hand. They are grouped by how much they touch, so you can pick:
 
-The last two change your fan and power profile while they run and put both back afterwards.
+| Tier | What it may touch | Scripts |
+|---|---|---|
+| **static** | reads files only | `tests/check.sh`, `tests/check-marketplace.sh`, `tests/test-readme.sh`, `tests/test-package.sh` |
+| **local** | a throwaway home directory | `tests/test-cli-link.sh` |
+| **shell** | briefly uses, and for one test disables and re-enables, the plugin in your running bar | `tests/test-panel.sh`, `tests/test-follow.sh` |
+| **hardware** | changes your fan profile (and, for the follower test, your power profile), then restores them | `tests/test-helper.sh`, `tests/test-effect.sh` |
+| **destructive** | needs sudo; stops and kills thinkfan on purpose, then starts it again | `tests/test-failsafe.sh` |
+
+What each one checks:
+
+- `check.sh`: manifest validation, shell syntax and executable bits, man-page lint, the curve files' shape, QML lint.
+- `check-marketplace.sh`: this checkout against the marketplace publishing and development rules (manifest fields, id rules,
+  README sections and disclosures, symlinks, the security-baseline patterns).
+- `test-readme.sh`: the README and man page against the code: documented subcommands exist, documented paths are real,
+  the numbers in the profile tables match the curve files, every test script is listed, links resolve.
+- `test-package.sh`: builds the root-helper package in a scratch folder and checks exactly what it installs (files,
+  owners, modes, the polkit policy, no sudoers rule). Nothing is installed.
+- `test-cli-link.sh`: the command and man-page links the plugin makes, in a fake home. Includes the legacy `omarchy-fan` checks.
+- `test-panel.sh`: the panel opens and closes (also with Escape and toggle), the shell log shows no errors from the
+  plugin, and the plugin survives being disabled and re-enabled with its icon back in the same place. `SKIP_CYCLE=1`
+  skips the disable/enable part.
+- `test-follow.sh`: the power-profile follower. Don't plug or unplug the charger while it runs.
+- `test-helper.sh`: each curve applies, manual levels reach the kernel, nine rapid restarts don't break thinkfan, and
+  the root helper rejects bad input without changing anything.
+- `test-effect.sh`: the fan really speeds up, slows down and stops (RPM, not just the requested level). Run it on an
+  idle laptop; the fan gets loud for a few seconds.
+- `test-failsafe.sh`: a clean stop of thinkfan hands the fan back to the firmware; a crash is recorded as a known gap.
+
+Every script prints `passed`, `failed` and `skipped` counts, so a skipped check can't pass for a real one. A script that
+cannot run on this machine (not a ThinkPad, no sudo, no plugin in the bar) exits with status 77 and says why. The
+scripts also work on older versions of the repo (they find the command under either name), which is how a release can
+be compared with the one before it. `tests/lib.sh` holds the shared helpers.
 
 ## Credits and license
 
