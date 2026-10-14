@@ -17,7 +17,7 @@ trap 'kill $monpid 2>/dev/null' EXIT
 
 while kill -0 "$parent" 2>/dev/null; do
   read -r -t 15 -u $mon _ || continue
-  sleep 0.3
+  while read -r -t 0.3 -u $mon _; do :; done     # a signal is a dozen lines: swallow them all, then look once
   cur=$(powerprofilesctl get) || continue
   [ "$cur" = "$last" ] && continue
   last=$cur
