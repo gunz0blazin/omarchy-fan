@@ -3,7 +3,7 @@
 #   cd packaging && makepkg -si      (install-helper.sh does this for you)
 pkgname=omarchy-fan-helper
 pkgver=1.0.0
-pkgrel=2
+pkgrel=3
 pkgdesc="Root helper for the Omarchy ThinkPad Fan Control plugin (thinkfan profiles through polkit)"
 arch=(any)
 url="https://github.com/gunz0blazin/omarchy-fan"
@@ -20,11 +20,15 @@ package() {
     install -Dm644 "$root/profiles/$p.yaml" "$pkgdir/usr/share/omarchy-fan/profiles/$p.yaml"
   done
 
-  # let thinkfan drive the fan (takes effect at boot; the helper's "enable" does it right now)
+  # let thinkfan drive the fan whenever the module is loaded normally. (At boot the module is usually loaded earlier,
+  # from the initramfs, without this option, so the thinkfan drop-in below also runs the helper's ensure-module.)
   install -Dm644 /dev/stdin "$pkgdir/usr/lib/modprobe.d/omarchy-fan.conf" <<< 'options thinkpad_acpi fan_control=1'
 
-  # moving the slider restarts thinkfan; don't let systemd's start-rate limit refuse a restart
-  install -Dm644 /dev/stdin "$pkgdir/usr/lib/systemd/system/thinkfan.service.d/omarchy-fan.conf" <<< $'[Unit]\nStartLimitIntervalSec=0'
+  # thinkfan.service drop-in:
+  #   StartLimitIntervalSec=0: moving the slider restarts thinkfan; don't let systemd's start-rate limit refuse that.
+  #   ExecStartPre: reload thinkpad_acpi with fan_control=1 if the early-boot load left it off (thinkfan refuses to
+  #   start otherwise). The "-" in front means a failure here never stops thinkfan from being started.
+  install -Dm644 /dev/stdin "$pkgdir/usr/lib/systemd/system/thinkfan.service.d/omarchy-fan.conf" <<< $'[Unit]\nStartLimitIntervalSec=0\n\n[Service]\nExecStartPre=-/usr/lib/omarchy-fan/helper ensure-module'
 
   install -Dm644 "$root/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 }
