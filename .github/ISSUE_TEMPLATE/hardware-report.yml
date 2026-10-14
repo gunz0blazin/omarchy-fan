@@ -6,7 +6,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for testing! Please read **"Is my ThinkPad supported?"** in the README first. It takes about five minutes.
+        Thanks for testing! Please read **"Report a new ThinkPad model"** in the README (under "For developers and testers") first. It takes about five minutes.
         Steps 1 and 2 only read files, step 3 briefly moves your fan. Nothing here needs more than the plugin itself.
   - type: input
     id: model

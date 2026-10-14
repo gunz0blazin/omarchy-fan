@@ -1,5 +1,5 @@
 blank_issues_enabled: true
 contact_links:
-  - name: Is my ThinkPad supported? (read this before a hardware report)
-    url: https://github.com/gunz0blazin/omarchy-fan#is-my-thinkpad-supported
+  - name: Report a new ThinkPad model (read this before a hardware report)
+    url: https://github.com/gunz0blazin/omarchy-fan#report-a-new-thinkpad-model
     about: What to run on your machine and what to include.
