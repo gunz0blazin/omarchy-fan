@@ -28,6 +28,8 @@ temp0=$(cpu_temp)
 [ "${temp0:-99}" -le 48 ] || suite_skip "the CPU is warm (${temp0}C): the fan is left alone for minutes, run this on an idle laptop"
 
 orig=$("$CLI" current)
+origin_url=$(git -C "$PDIR" remote get-url origin 2>/dev/null)     # the reinstall below clones from a scratch copy; put the real remote back
+branch0=$(git -C "$PDIR" branch --show-current 2>/dev/null)
 orphans0=$(pacman -Qdtq 2>/dev/null | sort)    # orphans that are already on the system are not ours
 manual=$(cat ~/.config/omarchy/fan/manual-level 2>/dev/null || echo 3)
 nofollow=$([ -e ~/.config/omarchy/fan/no-follow ] && echo yes || echo no)
@@ -38,9 +40,14 @@ restore() {
   echo "-- putting the plugin back"
   [ -d "$PDIR" ] || omarchy plugin add "file://$ROOT" --enable --yes >/dev/null 2>&1
   ( cd "$PDIR" && yes | bash install-helper.sh >/dev/null 2>&1 )
+  if [ -n "$origin_url" ] && [ -n "$branch0" ]; then
+    git -C "$PDIR" remote set-url origin "$origin_url" && git -C "$PDIR" fetch -q origin && \
+      git -C "$PDIR" checkout -q -B "$branch0" "origin/$branch0" && git -C "$PDIR" branch -u "origin/$branch0" >/dev/null 2>&1
+  fi
   [ -n "$index" ] && omarchy bar move "$ID" --section right --index "$index" >/dev/null 2>&1
   [ "$nofollow" = yes ] && "$PDIR/bin/omarchyfan" follow off >/dev/null 2>&1
   case "$orig" in manual) "$PDIR/bin/omarchyfan" manual "$manual" ;; *) "$PDIR/bin/omarchyfan" "$orig" ;; esac >/dev/null 2>&1
+  echo "   remote: $(git -C "$PDIR" remote get-url origin 2>/dev/null), branch $(git -C "$PDIR" branch --show-current 2>/dev/null)"
   echo "   back: plugin $(plugin_state), setup $("$PDIR/bin/omarchyfan" stats 2>/dev/null | awk -F'\t' '$1=="setup"{print $2}'), profile $("$PDIR/bin/omarchyfan" current 2>/dev/null)"
   rm -rf "$ROOT"   # the scratch copy this run was working from
 }
