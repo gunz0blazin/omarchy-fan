@@ -11,7 +11,7 @@ fan=$(dirname "$(readlink -f "$0")")/omarchy-fan
 map() { case "$1" in power-saver) echo quiet ;; performance) echo performance ;; *) echo balanced ;; esac; }
 
 last=$(powerprofilesctl get)
-exec {mon}< <(dbus-monitor --system "type='signal',interface='org.freedesktop.DBus.Properties',sender='net.hadess.PowerProfiles',member='PropertiesChanged'" 2>/dev/null)
+exec {mon}< <(stdbuf -oL dbus-monitor --system "type='signal',interface='org.freedesktop.DBus.Properties',sender='net.hadess.PowerProfiles',member='PropertiesChanged'" 2>/dev/null)
 monpid=$!
 trap 'kill $monpid 2>/dev/null' EXIT
 
