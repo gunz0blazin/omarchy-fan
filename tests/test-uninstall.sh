@@ -28,6 +28,7 @@ temp0=$(cpu_temp)
 [ "${temp0:-99}" -le 48 ] || suite_skip "the CPU is warm (${temp0}C): the fan is left alone for minutes, run this on an idle laptop"
 
 orig=$("$CLI" current)
+orphans0=$(pacman -Qdtq 2>/dev/null | sort)    # orphans that are already on the system are not ours
 manual=$(cat ~/.config/omarchy/fan/manual-level 2>/dev/null || echo 3)
 nofollow=$([ -e ~/.config/omarchy/fan/no-follow ] && echo yes || echo no)
 index=$(jq -r --arg id "$ID" '[.. | objects | select(has("right")) | .right | map(.id)][0] | index($id) // empty' ~/.config/omarchy/shell.json 2>/dev/null)
@@ -73,7 +74,7 @@ absent "no omarchy-fan-helper package"               "pacman -Q omarchy-fan-help
 absent "no thinkfan package"                         "pacman -Q thinkfan"
 absent "no thinkfan-debug package"                   "pacman -Q thinkfan-debug"
 absent "no orphaned dependency of thinkfan (yaml-cpp)" "pacman -Qq yaml-cpp"
-absent "no packages left without a reason to exist"  "pacman -Qdtq"
+absent "no new orphaned packages (ones from before don't count)" "comm -13 <(echo '$orphans0') <(pacman -Qdtq | sort)"
 absent "no helper, curves, polkit policy, modprobe or systemd files" \
   "ls -d /usr/lib/omarchy-fan /usr/share/omarchy-fan /usr/share/polkit-1/actions/org.omarchy.fan.policy /usr/lib/modprobe.d/omarchy-fan.conf /usr/lib/systemd/system/thinkfan.service.d /usr/share/licenses/omarchy-fan-helper"
 absent "no /etc/thinkfan.yaml (the curve we wrote)"  "ls /etc/thinkfan.yaml"
