@@ -1,0 +1,26 @@
+#!/bin/bash
+# Maps power-profile changes onto fan profiles. Started by the fan panel and it exits when
+# the shell that started it goes away. A manual fan change (panel or CLI) sticks until the next
+# power-profile change, unless "follow" is off.
+parent=$PPID
+[ -d /sys/devices/platform/thinkpad_acpi ] || exit 0
+exec 9> "${XDG_RUNTIME_DIR:-/tmp}/omarchy-fan-follow.lock"
+flock -w 20 9 || exit 0          # one follower at a time; on a shell restart wait for the old one to go
+
+fan=$(dirname "$(readlink -f "$0")")/omarchy-fan
+map() { case "$1" in power-saver) echo quiet ;; performance) echo performance ;; *) echo balanced ;; esac; }
+
+last=$(powerprofilesctl get)
+exec {mon}< <(dbus-monitor --system "type='signal',interface='org.freedesktop.DBus.Properties',sender='net.hadess.PowerProfiles',member='PropertiesChanged'" 2>/dev/null)
+monpid=$!
+trap 'kill $monpid 2>/dev/null' EXIT
+
+while kill -0 "$parent" 2>/dev/null; do
+  read -r -t 15 -u $mon _ || continue
+  sleep 0.3
+  cur=$(powerprofilesctl get) || continue
+  [ "$cur" = "$last" ] && continue
+  last=$cur
+  [ -e "$HOME/.config/omarchy/fan/no-follow" ] && continue
+  "$fan" "$(map "$cur")"
+done

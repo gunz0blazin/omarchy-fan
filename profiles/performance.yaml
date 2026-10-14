@@ -1,0 +1,13 @@
+# omarchy-fan profile: performance  (level, down-threshold, up-threshold)
+sensors:
+  - tpacpi: /proc/acpi/ibm/thermal
+    indices: [0]
+fans:
+  - tpacpi: /proc/acpi/ibm/fan
+levels:
+  - [1, 0, 50]
+  - [2, 45, 56]
+  - [3, 52, 62]
+  - [5, 58, 68]
+  - [7, 64, 74]
+  - ["level full-speed", 70, 32767]

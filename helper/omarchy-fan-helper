@@ -1,0 +1,39 @@
+#!/bin/bash
+# Root half of omarchy-fan. Installed as /usr/lib/omarchy-fan/helper and only ever run through
+# pkexec (see org.omarchy.fan.policy). It takes a profile NAME or a level 0-8, never a path or
+# a config, and builds /etc/thinkfan.yaml from the root-owned profiles in /usr/share/omarchy-fan.
+set -e
+profiles=/usr/share/omarchy-fan/profiles
+
+write_manual() {  # level 0-7, or 8 for full speed
+  local lv=$1
+  [ "$lv" = 8 ] && lv='"level full-speed"'
+  { sed -e '/^levels:/,$d' -e '1s/.*/# omarchy-fan profile: manual/' "$profiles/balanced.yaml"
+    printf 'levels:\n  - [%s, 0, 32767]\n' "$lv"; } > /etc/thinkfan.yaml.new
+  mv /etc/thinkfan.yaml.new /etc/thinkfan.yaml
+}
+
+restart_thinkfan() {
+  systemctl reset-failed thinkfan 2>/dev/null || true
+  systemctl restart thinkfan
+}
+
+case "$1" in
+  set)
+    case "$2" in
+      quiet|balanced|performance) install -m644 "$profiles/$2.yaml" /etc/thinkfan.yaml ;;
+      manual) [[ $3 =~ ^[0-8]$ ]] || { echo "level must be 0-8" >&2; exit 2; }; write_manual "$3" ;;
+      *) echo "unknown profile" >&2; exit 2 ;;
+    esac
+    restart_thinkfan ;;
+  enable)
+    # thinkpad_acpi only lets thinkfan drive the fan with fan_control=1 (the package sets it for
+    # the next boot; this makes it true now) and thinkfan needs a config to start from.
+    if [ "$(cat /sys/module/thinkpad_acpi/parameters/fan_control 2>/dev/null)" != Y ]; then
+      modprobe -r thinkpad_acpi 2>/dev/null && modprobe thinkpad_acpi fan_control=1 \
+        || echo "couldn't reload thinkpad_acpi: reboot to enable fan_control" >&2
+    fi
+    [ -e /etc/thinkfan.yaml ] || install -m644 "$profiles/balanced.yaml" /etc/thinkfan.yaml
+    systemctl enable --now thinkfan ;;
+  *) echo "usage: helper set <quiet|balanced|performance> | set manual <0-8> | enable" >&2; exit 2 ;;
+esac

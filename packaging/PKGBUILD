@@ -1,0 +1,30 @@
+# Maintainer: Isaiah Garrison (gunz0blazin)
+# Builds the small root-owned half of the ThinkPad Fan Control plugin from this checkout:
+#   cd packaging && makepkg -si      (install-helper.sh does this for you)
+pkgname=omarchy-fan-helper
+pkgver=1.0.0
+pkgrel=1
+pkgdesc="Root helper for the Omarchy ThinkPad Fan Control plugin (thinkfan profiles through polkit)"
+arch=(any)
+url="https://github.com/gunz0blazin/omarchy-fan"
+license=(MIT)
+depends=(thinkfan polkit)
+
+package() {
+  local root="$startdir/.."
+
+  # the helper only accepts a profile name or a level, and builds the config from the files below
+  install -Dm755 "$root/helper/omarchy-fan-helper" "$pkgdir/usr/lib/omarchy-fan/helper"
+  install -Dm644 "$root/helper/org.omarchy.fan.policy" "$pkgdir/usr/share/polkit-1/actions/org.omarchy.fan.policy"
+  for p in quiet balanced performance; do
+    install -Dm644 "$root/profiles/$p.yaml" "$pkgdir/usr/share/omarchy-fan/profiles/$p.yaml"
+  done
+
+  # let thinkfan drive the fan (takes effect at boot; the helper's "enable" does it right now)
+  install -Dm644 /dev/stdin "$pkgdir/usr/lib/modprobe.d/omarchy-fan.conf" <<< 'options thinkpad_acpi fan_control=1'
+
+  # moving the slider restarts thinkfan; don't let systemd's start-rate limit refuse a restart
+  install -Dm644 /dev/stdin "$pkgdir/usr/lib/systemd/system/thinkfan.service.d/omarchy-fan.conf" <<< $'[Unit]\nStartLimitIntervalSec=0'
+
+  install -Dm644 "$root/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
