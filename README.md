@@ -3,6 +3,13 @@
 Control your ThinkPad's fan from the Omarchy bar. One icon opens a panel styled like the built-in wifi and bluetooth
 panels, and it follows your theme.
 
+## Install
+
+    omarchy plugin add https://github.com/gunz0blazin/omarchy-fan.git --enable
+
+That is the whole install. Then click the new fan icon in the bar; the first time, press **Install fan control** (what
+it does is [explained below](#what-the-install-does)).
+
 <img src="docs/panel.png" width="507" alt="the fan panel">
 
 - **Live fan RPM** and a two-minute history graph
@@ -12,9 +19,7 @@ panels, and it follows your theme.
 - **Follow power profile**: switch the power profile and the fan profile follows (power-saver is Quiet, balanced is
   Balanced, performance is Performance). Turn it off and your fan setting stays put until you change it
 
-## Quick start
-
-    omarchy plugin add https://github.com/gunz0blazin/omarchy-fan --enable
+## What the install does
 
 `omarchy plugin add` shows the usual "plugins run unsandboxed" warning and asks which part of the bar to put the icon
 in (it suggests the right side; you can move it later, see [Where it sits in the bar](#where-it-sits-in-the-bar)). Then:
