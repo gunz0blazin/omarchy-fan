@@ -92,11 +92,17 @@ Panel {
       onStreamFinished: {
         var next = Model.parseKeyValue(text)
         if (Object.keys(next).length > 0) {
+          // an empty rpm is "no reading" (the controller glitches while the fan changes speed):
+          // keep the last good value and don't plot it
+          var good = next.rpm !== undefined && next.rpm !== ""
+          if (!good) next.rpm = root.info.rpm
           root.info = next
-          var h = root.history.concat([Number(next.rpm || 0)])
-          while (h.length > root.maxSamples) h.shift()
-          root.history = h
-          graph.requestPaint()
+          if (good) {
+            var h = root.history.concat([Number(next.rpm)])
+            while (h.length > root.maxSamples) h.shift()
+            root.history = h
+            graph.requestPaint()
+          }
         }
       }
     }

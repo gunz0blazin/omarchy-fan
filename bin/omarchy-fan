@@ -7,7 +7,8 @@ dir=$HOME/.config/omarchy/fan          # per-user state: active profile, manual 
 mkdir -p "$dir"
 
 active() { cat "$dir/active" 2>/dev/null || echo balanced; }
-fan_proc() { awk -v k="$1" '$1==k":"{print $2}' /proc/acpi/ibm/fan 2>/dev/null; }
+# the controller reports 65535 for a moment while the fan changes speed; that's "no reading", not an RPM
+fan_proc() { awk -v k="$1" '$1==k":"{ if (k=="speed" && $2>20000) exit; print $2 }' /proc/acpi/ibm/fan 2>/dev/null; }
 temp() { awk '/^temperatures:/{print $2}' /proc/acpi/ibm/thermal 2>/dev/null; }
 
 setup_state() {

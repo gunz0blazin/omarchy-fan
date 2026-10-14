@@ -10,9 +10,9 @@ panel in the same style as the wifi and bluetooth ones:
   switches the fan profile too; with it off your fan setting stays until you change it
 
 It follows your theme (colors, fonts, panel style) because it is built from the same Omarchy UI components as the
-built-in panels. There is also a CLI: `omarchy-fan quiet|balanced|performance|manual <0-8>|follow on|off|status`.
+built-in panels. There is also a CLI, `bin/omarchy-fan quiet|balanced|performance|manual <0-8>|follow on|off|status`
+(put it on your PATH with `ln -s ~/.config/omarchy/plugins/isaiah.fan/bin/omarchy-fan ~/.local/bin/`).
 
-<!-- screenshot -->
 ![the fan panel](docs/panel.png)
 
 ## Requirements
