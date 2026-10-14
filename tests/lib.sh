@@ -2,7 +2,7 @@
 # Shared helpers for the test scripts. Source this file; don't run it.
 #
 # Test tiers (what a script may touch):
-#   static       reads files only                      check.sh, check-marketplace.sh, test-readme.sh, test-package.sh
+#   static       reads files only                      check.sh, check-marketplace.sh, test-readme.sh, test-package.sh, test-compat.sh
 #   local        fake home directory, no system change test-cli-link.sh
 #   shell        briefly uses/disables the plugin in your running bar   test-panel.sh, test-follow.sh
 #   hardware     changes your fan (and power profile), then restores it test-helper.sh, test-effect.sh

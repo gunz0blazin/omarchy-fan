@@ -12,7 +12,7 @@ omarchyfan \- control a ThinkPad's fan from the Omarchy bar or a terminal
 .br
 .B omarchyfan follow on | off
 .br
-.B omarchyfan status | current | stats | help
+.B omarchyfan status | current | stats | doctor | help
 .SH DESCRIPTION
 .B omarchyfan
 is the command behind the ThinkPad Fan Control plugin for the Omarchy bar. The fan panel in the bar calls exactly
@@ -78,6 +78,23 @@ or
 Print the same facts as tab-separated
 .I key value
 lines (follow, manual, setup, profile, temp, rpm, level, service). The panel reads this; it is handy for scripts.
+.TP
+.B doctor
+Print a read-only report on whether this machine is supported: the model and BIOS, whether the
+.B thinkpad_acpi
+driver is loaded with
+.BR fan_control ,
+the fan levels it offers, whether the fan speed and the first temperature slot (the one the curves follow) can be
+read, whether there is a second fan, and whether
+.B thinkfan
+and the root helper are installed. Each line starts with
+.BR ok ,
+.B warn
+or
+.BR FAIL .
+The exit status is 1 if any line is
+.BR FAIL ,
+otherwise 0. Paste the output into an issue when asking about a new model.
 .TP
 .B help | \-h | \-\-help
 Show this page, or a short summary if the page is not installed.

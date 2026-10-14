@@ -36,6 +36,18 @@ Prefer to do step 2 yourself? Run `install-helper.sh` from the plugin folder
 | **Other laptops** | The widget hides itself when there is no `thinkpad_acpi` |
 | **Needs** | `power-profiles-daemon` (Omarchy default), `polkit`, `thinkfan` (AUR) |
 
+### Is my ThinkPad supported?
+
+Run `omarchyfan doctor`. It only reads, and prints one line per check (`ok`, `warn` or `FAIL`): the model, whether the
+`thinkpad_acpi` driver and its fan control are there, the fan levels, whether the fan speed and the temperature the
+curves follow can be read, and whether there is a second fan (the plugin only drives the first). A `FAIL` means it
+cannot work on that machine. If you try it on a model that isn't in the table, please open an issue with the output.
+
+| Model | Status |
+|---|---|
+| ThinkPad T480s | Tested (the only machine so far) |
+| other ThinkPads | Unverified, reports welcome |
+
 ## The profiles
 
 Temperatures are the ThinkPad's CPU sensor reading.
@@ -164,7 +176,7 @@ All the tests live in `tests/` and are run by hand. They are grouped by how much
 
 | Tier | What it may touch | Scripts |
 |---|---|---|
-| **static** | reads files only | `tests/check.sh`, `tests/check-marketplace.sh`, `tests/test-readme.sh`, `tests/test-package.sh` |
+| **static** | reads files only | `tests/check.sh`, `tests/check-marketplace.sh`, `tests/test-readme.sh`, `tests/test-package.sh`, `tests/test-compat.sh` |
 | **local** | a throwaway home directory | `tests/test-cli-link.sh` |
 | **shell** | briefly uses, and for one test disables and re-enables, the plugin in your running bar | `tests/test-panel.sh`, `tests/test-follow.sh` |
 | **hardware** | changes your fan profile (and, for the follower test, your power profile), then restores them | `tests/test-helper.sh`, `tests/test-effect.sh` |
@@ -179,6 +191,9 @@ What each one checks:
   the numbers in the profile tables match the curve files, every test script is listed, links resolve.
 - `test-package.sh`: builds the root-helper package in a scratch folder and checks exactly what it installs (files,
   owners, modes, the polkit policy, no sudoers rule). Nothing is installed.
+- `test-compat.sh`: `omarchyfan doctor` and `stats` against fake `/proc` and `/sys` trees in `tests/fixtures/` (the tested
+  T480s, plus a second fan, `fan_control` off, a 65535 speed glitch, missing files and a non-ThinkPad). Runs on any
+  machine; to add a model, see `tests/fixtures/README.md`.
 - `test-cli-link.sh`: the command and man-page links the plugin makes, in a fake home. Includes the legacy `omarchy-fan` checks.
 - `test-panel.sh`: the panel opens and closes (also with Escape and toggle), the shell log shows no errors from the
   plugin, and the plugin survives being disabled and re-enabled with its icon back in the same place. `SKIP_CYCLE=1`
