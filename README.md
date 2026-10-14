@@ -53,23 +53,28 @@ mode pins a single level instead of following a curve.
 
 The panel calls the same script you can use from a terminal:
 
-    omarchy-fan quiet|balanced|performance      # pick a curve
-    omarchy-fan manual 0-8                      # 0 is off, 8 is full speed
-    omarchy-fan follow on|off                   # follow the power profile or not
-    omarchy-fan status
+    omarchyfan quiet|balanced|performance      # pick a curve
+    omarchyfan manual 0-8                      # 0 is off, 8 is full speed
+    omarchyfan follow on|off                   # follow the power profile or not
+    omarchyfan status
+    omarchyfan help                            # opens the manual
 
-The plugin puts `omarchy-fan` on your PATH by itself: the first time the fan widget starts in the bar it links
-`bin/omarchy-fan` into `~/.local/bin/omarchy-fan` (which is on the PATH in Omarchy). Open a new terminal after
-installing. It never overwrites a real file with that name, and it fixes the link if the plugin folder moves.
+The full reference is a man page: `omarchyfan help` or `man omarchyfan` (the source is `man/omarchyfan.1`).
+
+The plugin puts `omarchyfan` on your PATH by itself: the first time the fan widget starts in the bar it links
+`bin/omarchyfan` into `~/.local/bin/omarchyfan` (which is on the PATH in Omarchy) and the man page into
+`~/.local/share/man/man1/` (which `man` searches by default). Open a new terminal after installing. It never
+overwrites a real file with either name, and it fixes the links if the plugin folder moves.
 
 ## What it installs, and why
 
 Changing the fan needs root, so the plugin is split in two.
 
-**The plugin runs as you.** `Panel.qml` draws the widget, `bin/omarchy-fan` is the CLI the panel calls, and
+**The plugin runs as you.** `Panel.qml` draws the widget, `bin/omarchyfan` is the CLI the panel calls, and
 `bin/omarchy-fan-follow` (started by the panel, stopped when the shell stops) listens for power-profile changes over
-D-Bus. Your choices live in `~/.config/omarchy/fan/`. The follower also makes the `~/.local/bin/omarchy-fan` link
-described under CLI, the only file the plugin writes outside its own folder and `~/.config/omarchy/fan/`.
+D-Bus. Your choices live in `~/.config/omarchy/fan/`. The follower also makes the two links described under
+CLI (`~/.local/bin/omarchyfan` and the man page), the only files the plugin writes outside its own folder and
+`~/.config/omarchy/fan/`.
 
 **A small root helper, as a normal pacman package** (`omarchy-fan-helper`, built from
 [`packaging/PKGBUILD`](packaging/PKGBUILD) on your machine). It installs exactly these files:
@@ -97,7 +102,7 @@ Worth knowing:
 ## Uninstall
 
     omarchy plugin remove io.github.gunz0blazin.thinkpad-fan
-    rm -f ~/.local/bin/omarchy-fan               # the command link the plugin made
+    rm -f ~/.local/bin/omarchyfan ~/.local/share/man/man1/omarchyfan.1   # the links the plugin made
     sudo systemctl disable --now thinkfan        # gives the fan back to the firmware
     sudo pacman -Rns omarchy-fan-helper          # removes the helper, polkit policy and curves
 
@@ -111,9 +116,9 @@ The helper reads the installed copies in `/usr/share/omarchy-fan/profiles/`. Edi
 
 ## Troubleshooting
 
-- **`omarchy-fan: command not found`:** the link is made when the fan widget first starts, so open a new terminal after
-  installing, and check `ls -l ~/.local/bin/omarchy-fan` and that `~/.local/bin` is on your PATH. You can always run
-  it by its full path: `~/.config/omarchy/plugins/io.github.gunz0blazin.thinkpad-fan/bin/omarchy-fan status`.
+- **`omarchyfan: command not found`:** the link is made when the fan widget first starts, so open a new terminal after
+  installing, and check `ls -l ~/.local/bin/omarchyfan` and that `~/.local/bin` is on your PATH. You can always run
+  it by its full path: `~/.config/omarchy/plugins/io.github.gunz0blazin.thinkpad-fan/bin/omarchyfan status`.
 - **No icon in the bar:** it only appears on a ThinkPad. Check `ls /proc/acpi/ibm/fan`. If it's there but the icon
   isn't, make sure the plugin is in a bar section: it goes in the center by default, and you can move its id in
   `~/.config/omarchy/shell.json` (`bar.layout`).
@@ -131,7 +136,7 @@ The helper reads the installed copies in `/usr/share/omarchy-fan/profiles/`. Edi
     tests/check.sh           # manifest validation, shell syntax, QML lint (no hardware needed)
     tests/test-helper.sh     # ThinkPad + helper installed: curves, manual levels, a restart storm, rejected input
     tests/test-follow.sh     # the plugin running in the bar: power-profile following, follow on/off
-    tests/test-cli-link.sh   # the ~/.local/bin/omarchy-fan link, in a throwaway home (no fan changes)
+    tests/test-cli-link.sh   # the command and man-page links, in a throwaway home (no fan changes)
 
 The last two change your fan and power profile while they run and put both back afterwards.
 

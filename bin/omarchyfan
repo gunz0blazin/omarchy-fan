@@ -1,5 +1,5 @@
 #!/bin/bash
-# omarchy-fan quiet|balanced|performance|manual <0-8>|follow on|off|status|current|stats
+# omarchyfan quiet|balanced|performance|manual <0-8>|follow on|off|status|current|stats|help   (man omarchyfan)
 # The user-facing half of the plugin. Changing the fan goes through the root helper
 # (/usr/lib/omarchy-fan/helper) with pkexec; everything else is plain reads.
 HELPER=/usr/lib/omarchy-fan/helper
@@ -33,7 +33,7 @@ case "${1:-status}" in
     case "$2" in
       on) rm -f "$dir/no-follow" ;;
       off) touch "$dir/no-follow" ;;
-      *) echo "usage: omarchy-fan follow on|off"; exit 1 ;;
+      *) echo "usage: omarchyfan follow on|off"; exit 1 ;;
     esac ;;
   stats)
     printf 'follow\t%s\n' "$([ -e "$dir/no-follow" ] && echo off || echo on)"
@@ -45,5 +45,10 @@ case "${1:-status}" in
   status)
     echo "profile: $(active)  temp: $(temp)°C  fan: $(fan_proc speed) RPM  setup: $(setup_state)"
     systemctl is-active thinkfan ;;
-  *) echo "usage: omarchy-fan quiet|balanced|performance|manual <0-8>|follow on|off|status"; exit 1 ;;
+  help|-h|--help)
+    # show the manual (man omarchyfan); if it isn't installed yet, fall back to a short summary
+    if man -w omarchyfan >/dev/null 2>&1; then exec man omarchyfan; fi
+    echo "usage: omarchyfan quiet|balanced|performance | manual <0-8> | follow on|off | status | current | stats | help"
+    echo "(the full manual, 'man omarchyfan', is linked in when the fan widget first starts in the bar)" ;;
+  *) echo "usage: omarchyfan quiet|balanced|performance|manual <0-8>|follow on|off|status   (omarchyfan help for the manual)"; exit 1 ;;
 esac

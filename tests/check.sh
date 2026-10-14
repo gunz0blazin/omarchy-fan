@@ -6,12 +6,15 @@ ok() { echo "  ok    $1"; }
 bad() { echo "  FAIL  $1"; rc=1; }
 
 command -v omarchy >/dev/null && { omarchy plugin validate . >/dev/null 2>&1 && ok "plugin manifest validates" || bad "plugin manifest validates"; }
-for f in bin/omarchy-fan bin/omarchy-fan-follow helper/omarchy-fan-helper install-helper.sh packaging/PKGBUILD; do
+for f in bin/omarchyfan bin/omarchy-fan-follow helper/omarchy-fan-helper install-helper.sh packaging/PKGBUILD; do
   bash -n "$f" 2>/dev/null && ok "syntax $f" || bad "syntax $f"
 done
-for f in bin/omarchy-fan bin/omarchy-fan-follow helper/omarchy-fan-helper install-helper.sh; do
+for f in bin/omarchyfan bin/omarchy-fan-follow helper/omarchy-fan-helper install-helper.sh; do
   [ -x "$f" ] && ok "executable $f" || bad "executable $f"
 done
+if command -v groff >/dev/null; then
+  [ -z "$(groff -man -ww -z man/omarchyfan.1 2>&1)" ] && ok "man page has no groff warnings" || bad "man page has no groff warnings"
+fi
 for y in profiles/*.yaml; do
   grep -q '^levels:' "$y" && grep -q 'tpacpi: /proc/acpi/ibm/fan' "$y" && ok "profile $y" || bad "profile $y"
 done

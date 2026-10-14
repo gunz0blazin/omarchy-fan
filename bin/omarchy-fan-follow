@@ -5,15 +5,32 @@
 parent=$PPID
 [ -d /sys/devices/platform/thinkpad_acpi ] || exit 0
 
-fan=$(dirname "$(readlink -f "$0")")/omarchy-fan
+fan=$(dirname "$(readlink -f "$0")")/omarchyfan
 
 # Put the command on the user's PATH: a symlink in ~/.local/bin (on PATH in Omarchy). Done on every start so it
 # heals after an update or a moved plugin folder, and before the lock so a waiting duplicate still does it.
 # It only replaces a symlink (ours or a dangling one); a real file with that name is left alone.
-link=$HOME/.local/bin/omarchy-fan
+link=$HOME/.local/bin/omarchyfan
 if [ -L "$link" ] || [ ! -e "$link" ]; then
   mkdir -p "$HOME/.local/bin" && ln -sfn "$fan" "$link"
 fi
+
+# ...and the manual page (man omarchyfan), in ~/.local/share/man/man1, which man searches by default. Same rules.
+manpage=$(cd "$(dirname "$fan")/.." && pwd)/man/omarchyfan.1
+mlink=$HOME/.local/share/man/man1/omarchyfan.1
+if [ -f "$manpage" ] && { [ -L "$mlink" ] || [ ! -e "$mlink" ]; }; then
+  mkdir -p "$HOME/.local/share/man/man1" && ln -sfn "$manpage" "$mlink"
+fi
+
+# The command used to be called omarchy-fan (with a hyphen). Remove the old links if they are ours, so there is only
+# one command: a symlink into this plugin's folder, or one that no longer points anywhere.
+for old in "$HOME/.local/bin/omarchy-fan" "$HOME/.local/share/man/man1/omarchy-fan.1"; do
+  if [ -L "$old" ]; then
+    case "$(readlink "$old")" in
+      *thinkpad-fan/bin/omarchy-fan | *thinkpad-fan/man/omarchy-fan.1) rm -f "$old" ;;
+    esac
+  fi
+done
 
 exec 9> "${XDG_RUNTIME_DIR:-/tmp}/omarchy-fan-follow.lock"
 flock -w 20 9 || exit 0          # one follower at a time; on a shell restart wait for the old one to go

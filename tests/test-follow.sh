@@ -1,6 +1,6 @@
 #!/bin/bash
 # Needs the plugin running in the bar (it starts the follower) and the helper installed; restores power profile, fan profile and follow flag
-B=${1:-$(dirname "$(readlink -f "$0")")/../bin/omarchy-fan}
+B=${1:-$(dirname "$(readlink -f "$0")")/../bin/omarchyfan}
 pass=0; failn=0
 t() { if [ "$2" = "$3" ]; then echo "  PASS  $1"; pass=$((pass+1)); else echo "  FAIL  $1 (got '$2', want '$3')"; failn=$((failn+1)); fi; }
 orig_pp=$(powerprofilesctl get); orig_fan=$($B current)

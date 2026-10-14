@@ -1,6 +1,6 @@
 #!/bin/bash
-# Needs a ThinkPad with the helper installed. Optional $1: path to bin/omarchy-fan.
-B=${1:-$(dirname "$(readlink -f "$0")")/../bin/omarchy-fan}
+# Needs a ThinkPad with the helper installed. Optional $1: path to bin/omarchyfan.
+B=${1:-$(dirname "$(readlink -f "$0")")/../bin/omarchyfan}
 H=/usr/lib/omarchy-fan/helper
 pass=0; failn=0
 t() { if [ "$2" = "$3" ]; then echo "  PASS  $1"; pass=$((pass+1)); else echo "  FAIL  $1 (got '$2', want '$3')"; failn=$((failn+1)); fi; }
