@@ -13,6 +13,14 @@ write_manual() {  # level 0-7, or 8 for full speed
   mv /etc/thinkfan.yaml.new /etc/thinkfan.yaml
 }
 
+# Never silently replace a thinkfan config the user wrote themselves: keep the first one as a backup.
+backup_user_config() {
+  if [ -e /etc/thinkfan.yaml ] && ! head -1 /etc/thinkfan.yaml | grep -q '^# omarchy-fan profile' \
+     && [ ! -e /etc/thinkfan.yaml.omarchy-fan.bak ]; then
+    cp -p /etc/thinkfan.yaml /etc/thinkfan.yaml.omarchy-fan.bak
+  fi
+}
+
 restart_thinkfan() {
   systemctl reset-failed thinkfan 2>/dev/null || true
   systemctl restart thinkfan
@@ -20,6 +28,7 @@ restart_thinkfan() {
 
 case "$1" in
   set)
+    backup_user_config
     case "$2" in
       quiet|balanced|performance) install -m644 "$profiles/$2.yaml" /etc/thinkfan.yaml ;;
       manual) [[ $3 =~ ^[0-8]$ ]] || { echo "level must be 0-8" >&2; exit 2; }; write_manual "$3" ;;

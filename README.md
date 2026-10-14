@@ -11,7 +11,7 @@ panel in the same style as the wifi and bluetooth ones:
 
 It follows your theme (colors, fonts, panel style) because it is built from the same Omarchy UI components as the
 built-in panels. There is also a CLI, `bin/omarchy-fan quiet|balanced|performance|manual <0-8>|follow on|off|status`
-(put it on your PATH with `ln -s ~/.config/omarchy/plugins/isaiah.fan/bin/omarchy-fan ~/.local/bin/`).
+(put it on your PATH with `ln -s ~/.config/omarchy/plugins/io.github.gunz0blazin.thinkpad-fan/bin/omarchy-fan ~/.local/bin/`).
 
 ![the fan panel](docs/panel.png)
 
@@ -30,9 +30,9 @@ Then open the fan icon in the bar. Because changing the fan needs root, the pane
 button the first time. It opens a terminal that runs `install-helper.sh`, which installs `thinkfan` from the AUR
 (through `omarchy-pkg-aur-add`), builds the small `omarchy-fan-helper` package from `packaging/PKGBUILD`, installs it
 with `makepkg -si` (you confirm it and type your sudo password there), and turns fan control on. You can run it
-yourself instead: `~/.config/omarchy/plugins/isaiah.fan/install-helper.sh`.
+yourself instead: `~/.config/omarchy/plugins/io.github.gunz0blazin.thinkpad-fan/install-helper.sh`.
 
-If you want a different spot in the bar, `omarchy plugin enable isaiah.fan` asks where.
+If you want a different spot in the bar, `omarchy plugin enable io.github.gunz0blazin.thinkpad-fan` asks where.
 
 ## How it works, and what it changes on your system
 
@@ -52,6 +52,10 @@ D-Bus. Your choices live in `~/.config/omarchy/fan/` (the active profile, the ma
 | `/usr/lib/modprobe.d/omarchy-fan.conf` | `options thinkpad_acpi fan_control=1`, which thinkfan needs. |
 | `/usr/lib/systemd/system/thinkfan.service.d/omarchy-fan.conf` | Turns off systemd's start rate limit, because moving the slider restarts thinkfan. |
 
+If you already have your own `/etc/thinkfan.yaml`, the helper keeps the first copy as
+`/etc/thinkfan.yaml.omarchy-fan.bak` before it writes a profile, and it never replaces your config just by being
+installed. Restore it any time with `sudo cp /etc/thinkfan.yaml.omarchy-fan.bak /etc/thinkfan.yaml`.
+
 Everything is a normal pacman package, so `pacman -Qlp`, `pacman -Ql omarchy-fan-helper` and `pacman -Rns` work as you'd
 expect. The curves use the ThinkPad's own embedded-controller temperature (`/proc/acpi/ibm/thermal`), not a
 CPU-vendor sensor, so Intel and AMD ThinkPads are treated the same.
@@ -61,7 +65,7 @@ before the CPU's critical temperature.
 
 ## Uninstall
 
-    omarchy plugin remove isaiah.fan
+    omarchy plugin remove io.github.gunz0blazin.thinkpad-fan
     sudo pacman -Rns omarchy-fan-helper       # optional: removes the helper, policy and curves
     sudo systemctl disable --now thinkfan     # optional: give the fan back to the firmware
 

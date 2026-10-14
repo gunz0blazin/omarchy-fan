@@ -3,7 +3,7 @@
 #   cd packaging && makepkg -si      (install-helper.sh does this for you)
 pkgname=omarchy-fan-helper
 pkgver=1.0.0
-pkgrel=1
+pkgrel=2
 pkgdesc="Root helper for the Omarchy ThinkPad Fan Control plugin (thinkfan profiles through polkit)"
 arch=(any)
 url="https://github.com/gunz0blazin/omarchy-fan"

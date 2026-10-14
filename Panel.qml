@@ -7,8 +7,8 @@ import "Model.js" as Model
 
 Panel {
   id: root
-  moduleName: "isaiah.fan"
-  ipcTarget: "isaiah.fan"
+  moduleName: "io.github.gunz0blazin.thinkpad-fan"
+  ipcTarget: "io.github.gunz0blazin.thinkpad-fan"
 
   readonly property string pluginDir: String(Qt.resolvedUrl(".")).replace("file://", "").replace(/\/$/, "")
   readonly property string fanBin: pluginDir + "/bin/omarchy-fan"

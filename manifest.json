@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "id": "isaiah.fan",
+  "id": "io.github.gunz0blazin.thinkpad-fan",
   "name": "ThinkPad Fan Control",
   "version": "1.0.0",
   "author": "Isaiah Garrison",
