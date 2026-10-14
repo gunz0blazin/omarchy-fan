@@ -14,6 +14,7 @@ last=$(powerprofilesctl get)
 exec {mon}< <(stdbuf -oL dbus-monitor --system "type='signal',interface='org.freedesktop.DBus.Properties',sender='net.hadess.PowerProfiles',member='PropertiesChanged'" 2>/dev/null 9>&-)   # 9>&-: the monitor must not inherit the lock, or an orphan would hold it
 monpid=$!
 trap 'kill $monpid 2>/dev/null' EXIT
+trap 'exit 0' TERM INT HUP
 
 while kill -0 "$parent" 2>/dev/null; do
   read -r -t 15 -u $mon _ || continue

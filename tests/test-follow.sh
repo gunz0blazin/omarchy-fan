@@ -4,7 +4,7 @@ B=${1:-$(dirname "$(readlink -f "$0")")/../bin/omarchy-fan}
 pass=0; failn=0
 t() { if [ "$2" = "$3" ]; then echo "  PASS  $1"; pass=$((pass+1)); else echo "  FAIL  $1 (got '$2', want '$3')"; failn=$((failn+1)); fi; }
 orig_pp=$(powerprofilesctl get); orig_fan=$($B current)
-t "follower running" "$(pgrep -f "bash .*/bin/omarchy-fan-follow" | wc -l)" 1
+t "follower running" "$(pgrep -f '^/usr/bin/bash [^ ]*/bin/omarchy-fan-follow$' | wc -l)" 1
 
 $B follow on; $B balanced; powerprofilesctl set balanced; sleep 2
 powerprofilesctl set power-saver; sleep 5
