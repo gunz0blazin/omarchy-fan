@@ -492,7 +492,7 @@ Panel {
               }
               Text {
                 textFormat: Text.PlainText
-                text: root.followPower ? "Power profile changes reset the fan" : "Fan setting stays until you change it"
+                text: root.followPower ? "Fan profile switches with power profile" : "Fan stays as you set it"
                 color: root.bar.foreground
                 opacity: 0.6
                 font.family: root.bar.fontFamily
