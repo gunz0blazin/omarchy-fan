@@ -17,7 +17,7 @@ panels, and it follows your theme.
     omarchy plugin add https://github.com/gunz0blazin/omarchy-fan --enable
 
 `omarchy plugin add` shows the usual "plugins run unsandboxed" warning and asks which part of the bar to put the icon
-in. Then:
+in (it suggests the right side, next to the volume and display icons). Then:
 
 1. Click the fan icon. The first time, the panel shows **Install fan control**.
 2. It opens a terminal that installs `thinkfan`, builds a small helper package and installs it (you confirm the
@@ -109,7 +109,29 @@ Worth knowing:
 Removing the plugin alone does **not** stop thinkfan: the fan keeps running on the last curve you chose until you
 disable the service.
 
-## Customising the curves
+## Configuration
+
+There is nothing to set in `shell.json`: you choose everything in the panel, with the [command](#cli), or in the files
+below.
+
+| What | How |
+|---|---|
+| Fan profile (Quiet, Balanced, Performance) | the panel's profile buttons, or `omarchyfan quiet\|balanced\|performance` |
+| A fixed fan level | the panel's slider, or `omarchyfan manual 0-8` |
+| Follow the power profile | the panel's switch, or `omarchyfan follow on\|off` (stored as the file `~/.config/omarchy/fan/no-follow`) |
+| Where the icon sits in the bar | `omarchy bar move io.github.gunz0blazin.thinkpad-fan --section right` (also `--index N`), see below |
+| The curves themselves | edit the thinkfan files, see below |
+
+Your choices are kept in `~/.config/omarchy/fan/` and survive reboots.
+
+### Where it sits in the bar
+
+`omarchy plugin add` asks, and suggests the right side. To change it later:
+
+    omarchy bar move io.github.gunz0blazin.thinkpad-fan --section right
+    omarchy bar move io.github.gunz0blazin.thinkpad-fan --section center --index 0
+
+### The curves
 
 The helper reads the installed copies in `/usr/share/omarchy-fan/profiles/`. Edit those, or fork this repo, change
 `profiles/`, and rebuild with `cd packaging && makepkg -si`.
@@ -120,8 +142,8 @@ The helper reads the installed copies in `/usr/share/omarchy-fan/profiles/`. Edi
   installing, and check `ls -l ~/.local/bin/omarchyfan` and that `~/.local/bin` is on your PATH. You can always run
   it by its full path: `~/.config/omarchy/plugins/io.github.gunz0blazin.thinkpad-fan/bin/omarchyfan status`.
 - **No icon in the bar:** it only appears on a ThinkPad. Check `ls /proc/acpi/ibm/fan`. If it's there but the icon
-  isn't, make sure the plugin is in a bar section: it goes in the center by default, and you can move its id in
-  `~/.config/omarchy/shell.json` (`bar.layout`).
+  isn't, make sure the plugin is in a bar section, and move it with
+  `omarchy bar move io.github.gunz0blazin.thinkpad-fan --section right`.
 - **Panel says "Enable fan control":** the helper is installed but thinkfan isn't running, or `fan_control` is off.
   Press the button, or run `pkexec /usr/lib/omarchy-fan/helper enable`.
 - **The fan setting keeps resetting:** turn off "Follow power profile". Any power profile change, from any source,
