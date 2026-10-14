@@ -188,7 +188,9 @@ What each one checks:
   the root helper rejects bad input without changing anything.
 - `test-effect.sh`: the fan really speeds up, slows down and stops (RPM, not just the requested level). Run it on an
   idle laptop; the fan gets loud for a few seconds.
-- `test-failsafe.sh`: a clean stop of thinkfan hands the fan back to the firmware; a crash is recorded as a known gap.
+- `test-failsafe.sh`: after thinkfan is stopped (cleanly or killed), the fan returns to firmware control once the
+  ThinkPad's 120 s fan watchdog fires. Takes about five minutes. A crash leaving the fan at its last level until then,
+  and thinkfan not restarting itself, are recorded as known gaps.
 
 Every script prints `passed`, `failed` and `skipped` counts, so a skipped check can't pass for a real one. A script that
 cannot run on this machine (not a ThinkPad, no sudo, no plugin in the bar) exits with status 77 and says why. The
