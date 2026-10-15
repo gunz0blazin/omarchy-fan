@@ -6,9 +6,9 @@
 #   local        fake home directory, no system change test-cli-link.sh
 #   shell        briefly uses/disables the plugin in your running bar   test-panel.sh, test-follow.sh
 #   hardware     changes your fan (and power profile), then restores it test-helper.sh, test-effect.sh
-#   destructive  needs sudo, stops thinkfan / reloads the driver        test-failsafe.sh, test-uninstall.sh, test-safety.sh
+#   destructive  needs sudo, stops thinkfan / reloads the driver        test-safety.sh, test-uninstall.sh, test-failsafe.sh
 #
-# full-test.sh runs them all (levels: quick, base = every push, release = before main); every script also runs by itself.
+# full-test.sh runs them (levels: quick, base = every commit, release = before main); every script also runs by itself.
 #
 # A suite that cannot run on this machine exits 77 ("skipped"); single skipped checks are counted and printed, so a
 # skip can never be mistaken for a pass.

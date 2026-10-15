@@ -84,6 +84,34 @@ t "no 'curl | sh' or 'wget | sh' style downloads" "$(grep -ciE '(curl|wget)[^|]*
 t "no sudoers rule is installed or written" "$(grep -ciE 'nopasswd|/etc/sudoers' $code | awk '{s+=$1} END{print s+0}')" 0
 t "no pid read from a predictable /tmp file for privileged control" "$(grep -ciE 'pid.*/tmp/|/tmp/.*pid' $code | awk '{s+=$1} END{print s+0}')" 0
 t "no cargo install --git / unpinned remote git execution" "$(grep -ciE 'cargo install --git|git clone' $code | awk '{s+=$1} END{print s+0}')" 0
+if [ -n "$MARKETPLACE_SCAN" ]; then
+  # The marketplace's OWN scanner (public, in omacom/omarchy-plugin-marketplace), run on the commit that is on GitHub, exactly as the bot
+  # runs it. Needs network, node, curl and jq, and the commit must be pushed. Enable with MARKETPLACE_SCAN=1 (full-test --release does).
+  echo "-- the marketplace's own security-baseline scanner on the pushed commit (MARKETPLACE_SCAN=1)"
+  ref=${SCAN_REF:-origin/dev}; sha=$(git rev-parse "$ref" 2>/dev/null)
+  if ! command -v node >/dev/null || ! command -v curl >/dev/null || ! command -v jq >/dev/null; then skip "scanner (needs node, curl and jq)"
+  elif [ -z "$sha" ]; then skip "scanner (no such ref: $ref)"
+  else
+    sd=$(mktemp -d); base=https://raw.githubusercontent.com/omacom/omarchy-plugin-marketplace/main/scripts; fetched=1
+    for f in security-baseline-scanner security-baseline-analysis security-baseline-error security-baseline-limits security-baseline-policy security-baseline-record security-baseline-report security-baseline-scope security-baseline-approval security-github-snapshot github-repository; do
+      curl -sfL "$base/$f.mjs" -o "$sd/$f.mjs" || fetched=0; done
+    if [ "$fetched" = 0 ]; then skip "scanner (could not download the marketplace scripts)"
+    else
+      echo 'import { runSecurityBaseline } from "./security-baseline-scanner.mjs"; const [r, s, p] = process.argv.slice(2); try { console.log(JSON.stringify(await runSecurityBaseline(r, s, { requiredPaths: [p] }))); } catch (e) { console.log(JSON.stringify({ error: String(e?.message || e) })); process.exitCode = 2; }' > "$sd/run.mjs"
+      entry=$(jq -r '.entryPoints.barWidget' manifest.json)
+      res=$(cd "$sd" && node run.mjs "https://github.com/gunz0blazin/omarchy-fan" "$sha" "$entry" 2>/dev/null)
+      if [ -z "$res" ] || [ "$(jq -r 'has("error")' <<<"$res")" = true ]; then bad "scanner could not scan ${sha:0:7} ($(jq -r '.error // "no output"' <<<"$res" | cut -c1-100)): is the commit pushed?"
+      else
+        t "the scanner's outcome for ${sha:0:7} does not block approval" "$(jq -r '.blocksApproval' <<<"$res")" false
+        t "the scanner reports no findings" "$(jq -r '.findings | length' <<<"$res")" 0
+        # the capabilities a maintainer already accepted at the approved commit; anything new would need a fresh review
+        new=$(jq -r '[.capabilities[].id] | map(select(. != "privilege" and . != "package-manager" and . != "service-management" and . != "installer")) | join(",")' <<<"$res")
+        t "no capability beyond the four a maintainer already accepted (privilege, package-manager, service-management, installer)" "${new:-none}" none
+      fi
+    fi
+    rm -rf "$sd"
+  fi
+fi
 info "expected to be flagged for a maintainer to review (not blocking): pkexec, makepkg/pacman (package manager), systemd drop-in (service management), install-helper.sh (installer)"
 
 finish
