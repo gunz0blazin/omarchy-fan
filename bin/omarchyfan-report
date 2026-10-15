@@ -7,7 +7,7 @@
 # What it touches: the fan profile, briefly (put back at the end, also if interrupted). It aborts and puts the fan on
 # Performance if the CPU reaches 80C, and it does not start the fan test above 65C. It reads only these files: the
 # DMI model/BIOS fields, /proc/acpi/ibm/{fan,thermal}, the thinkpad_acpi fan_control parameter, the thinkpad hwmon fan
-# inputs and the kernel's "secondary fan control" lines. No serial numbers, no hostname, no username.
+# inputs and the kernel's "secondary fan" and "2nd fan" lines. No serial numbers, no hostname, no username.
 #
 # OMARCHYFAN_ROOT (tests only) moves the hardware files under a fixture folder; the fan test never runs there.
 # OMARCHYFAN_REPORT_FILE (tests only) changes where the detail file goes.
@@ -105,8 +105,13 @@ settle() { # <timeout s>: wait until the RPM stops changing (two reads 3 s apart
 
 if [ -z "$skip_reason" ]; then
   fan_ran=1
-  orig=$("$CLI" current)
-  restore() { case "$orig" in manual) "$CLI" manual "$(cat "$HOME/.config/omarchy/fan/manual-level" 2>/dev/null || echo 3)" ;; *) "$CLI" "$orig" ;; esac >/dev/null 2>&1; }
+  # the test's own "manual" steps overwrite the saved level, so remember it now
+  orig=$("$CLI" current); orig_level=$(cat "$HOME/.config/omarchy/fan/manual-level" 2>/dev/null)
+  restore() {
+    if [ "$orig" = manual ] && [[ $orig_level =~ ^[0-8]$ ]]; then "$CLI" manual "$orig_level"
+    elif [ "$orig" = manual ]; then "$CLI" balanced
+    else "$CLI" "$orig"; fi >/dev/null 2>&1
+  }
   trap restore EXIT
   trap 'echo; echo "Interrupted: your fan profile is being put back ($orig)."; exit 130' INT TERM
   t0=$SECONDS
@@ -124,18 +129,28 @@ if [ -z "$skip_reason" ]; then
   settle 45; full=$settled; full2=$(hwmon_fan fan2_input)
   note "  INFO  full speed settled at ${full:-no reading} RPM"
 
-  "$CLI" manual 4 >/dev/null 2>&1; sleep 2
-  check "manual 4 reaches the kernel" "$(klevel)" 4 && lvl_n=$((lvl_n+1))
-  settle 50; mid=$settled; mid2=$(hwmon_fan fan2_input)
-  note "  INFO  level 4 settled at ${mid:-no reading} RPM"
+  # from here on, a CPU at 80C ends the test: settle() has put the fan on performance, and the lower levels must not follow
+  if [ "$hot" = 0 ]; then
+    "$CLI" manual 4 >/dev/null 2>&1; sleep 2
+    check "manual 4 reaches the kernel" "$(klevel)" 4 && lvl_n=$((lvl_n+1))
+    settle 50; mid=$settled; mid2=$(hwmon_fan fan2_input)
+    note "  INFO  level 4 settled at ${mid:-no reading} RPM"
+  fi
 
-  "$CLI" manual 0 >/dev/null 2>&1; sleep 2
-  check "manual 0 reaches the kernel" "$(klevel)" 0 && lvl_n=$((lvl_n+1))
-  settle 70; off=$settled; off2=$(hwmon_fan fan2_input)
-  note "  INFO  off settled at ${off:-no reading} RPM"
+  if [ "$hot" = 0 ]; then
+    "$CLI" manual 0 >/dev/null 2>&1; sleep 2
+    check "manual 0 reaches the kernel" "$(klevel)" 0 && lvl_n=$((lvl_n+1))
+    settle 70; off=$settled; off2=$(hwmon_fan fan2_input)
+    note "  INFO  off settled at ${off:-no reading} RPM"
+  fi
 
-  # relative, not absolute: fan speeds differ a lot between models
-  check "fan speed order: full speed > level 4 > off" "$([ "${full:-0}" -gt "${mid:-0}" ] && [ "${mid:-0}" -gt "${off:-0}" ] && echo yes || echo no)" yes
+  if [ "$hot" = 0 ]; then
+    # relative, not absolute: fan speeds differ a lot between models
+    check "fan speed order: full speed > level 4 > off" "$([ "${full:-0}" -gt "${mid:-0}" ] && [ "${mid:-0}" -gt "${off:-0}" ] && echo yes || echo no)" yes
+  else
+    echo "The CPU reached 80C: the fan test stopped early and the fan was put on performance."
+    note "  INFO  stopped early: the CPU reached 80C"
+  fi
   check "the CPU stayed under 80C" "$([ "$hot" = 0 ] && echo yes || echo no)" yes
 
   restore; trap - EXIT
@@ -186,7 +201,7 @@ row "result" "$result"
   echo "== DMI"; echo "sys_vendor: $(field sys_vendor)"; echo "product_name: $(field product_name)"
   echo "product_version: $(field product_version)"; echo "bios_version: $(field bios_version)"
   echo "== thinkpad hwmon fans"; echo "fan1_input: $(hwmon_fan fan1_input)"; echo "fan2_input: $(hwmon_fan fan2_input)"
-  echo "== kernel log: secondary fan"; kernel_log | grep -i 'secondary fan'
+  echo "== kernel log: secondary fan"; kernel_log | grep -iE 'secondary fan|2nd fan'
   echo
   echo "== fan test"; if [ "$fan_ran" = 1 ]; then printf '%s' "$log"; else echo "skipped: $skip_reason"; fi
 } > "$out" 2>/dev/null

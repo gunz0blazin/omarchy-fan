@@ -89,7 +89,7 @@ checks, then asks before it runs the fan at full speed, at level 4 and off, one 
 fan gets loud), and checks that each curve and each level reaches the kernel and that the speed really follows:
 full speed faster than level 4, level 4 faster than off. Speeds are compared with each other, not with fixed numbers,
 because fans differ between models. Your profile is put back at the end, also if you interrupt it. It does not start
-above 65C, and puts the fan on performance if the CPU reaches 80C.
+above 65C; if the CPU reaches 80C it stops the test there and puts the fan on performance.
 .IP
 It prints a short summary (plugin version, kernel, BIOS, model, the doctor counts, the fan speeds, the test counts and
 a
@@ -128,7 +128,7 @@ The exit status is 1 if any line is
 otherwise 0. Paste the output into an issue when asking about a new model.
 .TP
 .B reapply
-Put the active profile (or the pinned manual level) back through the root helper. That copies the curves installed with the helper
+Put the active profile (or the pinned manual level; balanced if no level was saved) back through the root helper. That copies the curves installed with the helper
 package into
 .I /etc/thinkfan.yaml
 again, which is how a new curve takes effect after the helper package is updated.

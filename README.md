@@ -285,7 +285,7 @@ and exits non-zero if anything failed. The read-only suites run in parallel with
 |---|---|---|---|
 | **commit** (every commit) | `check`, `marketplace`, `readme`, `compat` | ~10 s | read-only: the code parses and runs against fake machines, the manifest and marketplace rules hold, the README still matches the code |
 | **quick** | commit + `package`, `cli-link` | ~35 s | read-only: the root-helper package and the command links are consistent |
-| **base** (before main) | quick + `panel`, `follow`, `helper`, `effect`, `safety-net`, `safety-reload`, `safety-handoff` | ~3 min | the plugin loads and works on the device, the fan obeys, every pinned level has its safety row, the driver reload is harmless, the firmware takes over when the plugin goes |
+| **base** (before main) | quick + `panel`, `follow`, `helper`, `effect`, `safety-net`, `safety-reload`, `safety-handoff` | ~3.5 min | the plugin loads and works on the device, the fan obeys, every pinned level has its safety row, the driver reload is harmless, the firmware takes over when the plugin goes |
 | **release** (before main) | base + `uninstall`, `scan` | ~8 min | a clean uninstall that leaves nothing behind, and the marketplace's own security scanner on the pushed commit |
 
 Nothing in the stack loads or heats the CPU.

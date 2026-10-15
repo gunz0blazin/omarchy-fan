@@ -1,0 +1,2 @@
+thinkpad_acpi: secondary fan control detected & enabled
+thinkpad_acpi: Couldn't set 2nd fan level, disabling support

@@ -19,7 +19,17 @@ active() { cat "$dir/active" 2>/dev/null || echo balanced; }
 # the helper package this plugin ships (packaging/PKGBUILD) and the one that is installed: "update-available" when the installed one is older
 want_helper() { awk -F= '/^pkgver=/{v=$2} /^pkgrel=/{r=$2} END{if (v != "") print v "-" r}' "$plugin_root/packaging/PKGBUILD" 2>/dev/null; }
 have_helper() { echo "${OMARCHYFAN_HELPER_VERSION:-$(pacman -Q omarchy-fan-helper 2>/dev/null | cut -d' ' -f2)}"; }
-helper_outdated() { local have want; have=$(have_helper); want=$(want_helper); [ -n "$have" ] && [ -n "$want" ] && [ "$(vercmp "$have" "$want" 2>/dev/null)" = -1 ]; }
+# the panel asks for stats every 2 s, so the answer is cached in $dir/helper-check until pacman's database or the PKGBUILD changes
+helper_outdated() {
+  local have want c=$dir/helper-check cached
+  if [ -z "$OMARCHYFAN_HELPER_VERSION" ] && [ -s "$c" ] && [ "$c" -nt /var/lib/pacman/local ] && [ "$c" -nt "$plugin_root/packaging/PKGBUILD" ]; then
+    read -r cached < "$c"; [ "$cached" = yes ]; return
+  fi
+  have=$(have_helper); want=$(want_helper)
+  if [ -n "$have" ] && [ -n "$want" ] && [ "$(vercmp "$have" "$want" 2>/dev/null)" = -1 ]; then cached=yes; else cached=no; fi
+  [ -n "$OMARCHYFAN_HELPER_VERSION" ] || echo "$cached" > "$c"
+  [ "$cached" = yes ]
+}
 # the controller reports 65535 for a moment while the fan changes speed; that's "no reading", not an RPM
 fan_proc() { awk -v k="$1" '$1==k":"{ if (k=="speed" && $2>20000) exit; print $2 }' "$R/proc/acpi/ibm/fan" 2>/dev/null; }
 temp() { awk '/^temperatures:/{print $2}' "$R/proc/acpi/ibm/thermal" 2>/dev/null; }
@@ -77,10 +87,12 @@ doctor() {
     [ "$(cat "$h/name" 2>/dev/null)" = thinkpad ] || continue
     [ -e "$h/fan2_input" ] || continue
     # thinkpad_acpi writes every fan level to both fans once it has secondary fan control, and thinkfan sets the
-    # level through it, so the curves drive fan2 too. The kernel only says whether it does in its log.
-    case "$(kernel_log | grep -o 'secondary fan control [a-z &]*' | tail -1)" in
+    # level through it, so the curves drive fan2 too. The kernel only says whether it does in its log; the last word counts,
+    # because it can switch fan2 control off later ("Couldn't set 2nd fan level") and a driver reload starts over.
+    case "$(kernel_log | grep -oE "secondary fan (control|support) [a-z &]*|Couldn't set 2nd fan level" | tail -1)" in
       *"detected & enabled"|*"control enabled") res ok "second fan (fan2): the kernel sets each fan level on both fans" ;;
-      *"not supported") res warn "second fan (fan2) is reported, but the kernel can't set its level: only the first follows the curves" ;;
+      *"2nd fan level") res warn "second fan (fan2): the kernel failed to set its level and stopped trying: only the first follows the curves" ;;
+      *"not supported"|*"support enabled") res warn "second fan (fan2) is reported, but the kernel can't set its level: only the first follows the curves" ;;
       *) res warn "second fan (fan2) is reported; the kernel log doesn't say whether it sets its level too (look for 'secondary fan control')" ;;
     esac
     f1=$(cat "$h/fan1_input" 2>/dev/null); f2=$(cat "$h/fan2_input" 2>/dev/null)
@@ -124,7 +136,10 @@ case "${1:-status}" in
   doctor) doctor; exit $? ;;
   reapply)   # put the active profile (or pinned level) back through the helper: copies the installed curves into /etc/thinkfan.yaml again
     case "$(active)" in
-      manual) exec "$0" manual "$(cat "$dir/manual-level" 2>/dev/null || echo 3)" ;;
+      manual)   # a pinned level is only put back if it was saved; otherwise the default profile, not a made-up level
+        n=$(cat "$dir/manual-level" 2>/dev/null)
+        if [[ $n =~ ^[0-8]$ ]]; then exec "$0" manual "$n"; fi
+        echo "no saved manual level: applying balanced"; exec "$0" balanced ;;
       *) exec "$0" "$(active)" ;;
     esac ;;
   current) active ;;

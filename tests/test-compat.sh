@@ -38,6 +38,11 @@ t "mirrored fan2: says it can't tell from the kernel log" "$(has "$d" "warn +sec
 t "mirrored fan2: notes one fan reported twice" "$(has "$d" 'fan2 reads exactly like fan1 \(3268 RPM\)')" yes
 d=$(doc dual-fan-no-ctl)
 t "fan2 without control: warns only the first follows" "$(has "$d" "warn +second fan \(fan2\) is reported, but the kernel can't set its level")" yes
+d=$(doc dual-fan-read-only)
+t "fan2 readable only ('support enabled'): warns only the first follows" "$(has "$d" "warn +second fan \(fan2\) is reported, but the kernel can't set its level")" yes
+d=$(doc dual-fan-ctl-lost)
+t "fan2 control lost after boot ('Couldn't set 2nd fan level'): warns, no ok" "$(has "$d" 'warn +second fan \(fan2\): the kernel failed to set its level')" yes
+t "fan2 control lost after boot: the earlier 'enabled' line doesn't count" "$(has "$d" 'ok +second fan')" no
 d=$(doc fan-control-off)
 t "fan_control off: supported, with a warning (exit 0)" "$(rc fan-control-off)" 0
 t "fan_control off: warns" "$(has "$d" 'warn +fan_control is off')" yes

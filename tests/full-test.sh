@@ -27,7 +27,7 @@ REGISTRY='check|check.sh||commit|5|240|-|manifest, shell syntax, executable bits
 marketplace|check-marketplace.sh||commit|5|240|-|the marketplace publishing, development and security-baseline rules
 readme|test-readme.sh||commit|5|240|-|README and man page match the code, the paths, the curve numbers, the test list
 package|test-package.sh||quick|5|300|makepkg|the root-helper package: exact files, owners, modes, polkit policy, no sudoers rule
-compat|test-compat.sh||commit|5|240|-|doctor and stats over ten fake machines (other ThinkPads, broken and non-ThinkPad)
+compat|test-compat.sh||commit|5|240|-|doctor and stats over the T480s capture and 13 fake machines (other ThinkPads, broken and non-ThinkPad)
 cli-link|test-cli-link.sh||quick|35|240|-|the command and man-page links the plugin makes, in a fake home
 panel|test-panel.sh||base|30|420|plugin in the bar|the panel opens/closes (also Escape), no shell-log errors, survives disable and re-enable
 follow|test-follow.sh||base|30|300|plugin in the bar|the power-profile follower reacts, stays single, leaves AC alone
@@ -45,7 +45,7 @@ want_level=1; only=""; sync=""; ref=dev; list=0
 while [ $# -gt 0 ]; do case "$1" in
   --quick) want_level=2 ;; --base) want_level=3 ;; --release) want_level=4 ;; --list) list=1 ;; --only) only=$2; shift ;; --only=*) only=${1#--only=} ;;
   --sync) sync=1; case "$2" in ""|--*) ;; *) ref=$2; shift ;; esac ;;
-  -h|--help) sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+  -h|--help) sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
   *) echo "unknown option: $1 (try --help)"; exit 2 ;; esac; shift; done
 
 if [ "$list" = 1 ]; then

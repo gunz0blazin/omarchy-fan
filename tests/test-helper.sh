@@ -36,9 +36,14 @@ t "the installed helper is current: setup is ready" "$("$CLI" stats | awk -F'\t'
 t "a simulated older helper: setup is update-available" "$(OMARCHYFAN_HELPER_VERSION=0.0.1-1 "$CLI" stats | awk -F'\t' '$1=="setup"{print $2}')" update-available
 t "a simulated newer helper: setup is ready" "$(OMARCHYFAN_HELPER_VERSION=99.0-1 "$CLI" stats | awk -F'\t' '$1=="setup"{print $2}')" ready
 "$CLI" quiet >/dev/null; sleep 1
-echo "# stale curve, as left behind by an older helper" | sudo -n tee -a /etc/thinkfan.yaml >/dev/null 2>&1 || true
-"$CLI" reapply >/dev/null 2>&1; sleep 2
-t "reapply puts the active profile back through the helper (the config is the installed quiet curve again)" "$(cmp -s /etc/thinkfan.yaml /usr/share/omarchy-fan/profiles/quiet.yaml && echo yes || echo no)" yes
+# plant a stale line first, so a reapply that does nothing cannot pass
+if echo "# stale curve, as left behind by an older helper" | sudo -n tee -a /etc/thinkfan.yaml >/dev/null 2>&1; then
+  t "the stale line is in the config (setup for the next check)" "$(cmp -s /etc/thinkfan.yaml /usr/share/omarchy-fan/profiles/quiet.yaml && echo same || echo differs)" differs
+  "$CLI" reapply >/dev/null 2>&1; sleep 2
+  t "reapply puts the active profile back through the helper (the config is the installed quiet curve again)" "$(cmp -s /etc/thinkfan.yaml /usr/share/omarchy-fan/profiles/quiet.yaml && echo yes || echo no)" yes
+else
+  skip "reapply rewrites a stale config (needs passwordless sudo to plant the stale line)"
+fi
 t "reapply leaves the active profile as it was" "$("$CLI" current)" quiet
 "$CLI" manual 3 >/dev/null; sleep 1; "$CLI" reapply >/dev/null 2>&1; sleep 2
 t "reapply keeps a pinned manual level (level 3)" "$(fan_level)" 3
