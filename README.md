@@ -230,8 +230,8 @@ All the tests live in `tests/` and are run by hand. They are grouped by how much
 | **static** | reads files only | `tests/check.sh`, `tests/check-marketplace.sh`, `tests/test-readme.sh`, `tests/test-package.sh`, `tests/test-compat.sh` |
 | **local** | a throwaway home directory | `tests/test-cli-link.sh` |
 | **shell** | briefly uses, and for one test disables and re-enables, the plugin in your running bar | `tests/test-panel.sh`, `tests/test-follow.sh` |
-| **hardware** | changes your fan profile (and, for the follower test, your power profile), then restores them; `test-safety.sh` also loads the CPU | `tests/test-helper.sh`, `tests/test-effect.sh`, `tests/test-safety.sh` |
-| **destructive** | needs sudo; stops and kills thinkfan on purpose, then starts it again; removes the plugin and puts it back | `tests/test-failsafe.sh`, `tests/test-uninstall.sh` |
+| **hardware** | changes your fan profile (and, for the follower test, your power profile), then restores them | `tests/test-helper.sh`, `tests/test-effect.sh` |
+| **destructive** | needs sudo; stops and kills thinkfan on purpose, then starts it again; removes the plugin and puts it back; heats the CPU, reloads the driver, suspends the laptop | `tests/test-failsafe.sh`, `tests/test-uninstall.sh`, `tests/test-safety.sh` |
 
 What each one checks:
 
@@ -254,9 +254,16 @@ What each one checks:
   the root helper rejects bad input without changing anything.
 - `test-effect.sh`: the fan really speeds up, slows down and stops (RPM, not just the requested level). Run it on an
   idle laptop; the fan gets loud for a few seconds.
-- `test-safety.sh`: the manual-mode safety net. Checks the config written for each manual level, then pins the fan off,
-  loads 2 CPU threads, and confirms the fan stays off while cool, goes to full speed at 85°C, holds the CPU there, and
-  drops back after the load ends. Stops everything at 97°C. Idle, cool laptop only; takes about 6 minutes.
+- `test-safety.sh`: **the safety test**: what happens when things go wrong on a real ThinkPad, in five parts you can run
+  together (about 30 minutes, plugged in for the full effect) or pick with `PARTS="net reload" bash tests/test-safety.sh`:
+  `net` (a pinned "fan off" goes to full speed at 85°C and back below 80°C, config for every level plus live),
+  `reload` (reloading the `thinkpad_acpi` driver leaves the LEDs, battery limits, hotkeys and radios intact),
+  `suspend` (a real suspend and resume: thinkfan, the fan level, the follower and the panel recover),
+  `load` (4 busy threads under each profile: the fan must be at full speed before the CPU reaches 90°C), and
+  `rip` (worst case: heat the CPU as hot as fan control allows, soak it, then run the README Uninstall mid-load: the fan
+  must hand back to the firmware within 10 s). A kill switch stops every load and forces full fan whenever any thermal zone is
+  within 2°C of its own power-off trip. Plugged in, a 4-thread load can heat this class of laptop past what the fan can
+  handle; the kill switch ends the run and that is recorded as a known gap, not a failure.
 - `test-failsafe.sh`: after thinkfan is stopped (cleanly or killed), the fan returns to firmware control once the
   ThinkPad's 120 s fan watchdog fires. Takes about five minutes. A crash leaving the fan at its last level until then,
   and thinkfan not restarting itself, are recorded as known gaps.
