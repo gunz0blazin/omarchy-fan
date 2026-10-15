@@ -7,7 +7,7 @@
 #   bash tests/full-test.sh --quick         commit + the package and CLI-link suites (about 35 seconds; still read-only)
 #   bash tests/full-test.sh --base          quick + the device suites: before merging to main (about 3.5 minutes; budget 4)
 #   bash tests/full-test.sh --release       base + a clean uninstall/reinstall and the marketplace's own security scanner on the pushed
-#                                           commit: before merging to main (about 8 minutes; needs network)
+#                                           commit: before merging to main (about 4.5 minutes; needs network)
 #   bash tests/full-test.sh --list          what is in each level, how long it takes, what it needs
 #   bash tests/full-test.sh --only id,id    just these (ids from --list)
 #   bash tests/full-test.sh --sync [REF]    first make the installed plugin and root helper match origin/REF (default dev) and
@@ -23,21 +23,21 @@ BUDGET=240     # seconds the base suite must stay under
 # the registry: the one place that decides what runs when.   id | script | env | level | seconds | limit(s) | needs | what it proves
 #   level: commit = fast read-only checks, every commit (~10 s); quick = the other read-only suites (~35 s in all);
 #          base = the device suites, before a merge to main; release = base + uninstall + marketplace scanner
-REGISTRY='check|check.sh||commit|5|240|-|manifest, shell syntax, executable bits, man-page lint, curve files, profile safety rule, QML lint
-marketplace|check-marketplace.sh||commit|5|240|-|the marketplace publishing, development and security-baseline rules
-readme|test-readme.sh||commit|5|240|-|README, DEVELOPING.md and the man page match the code, the paths, the curve numbers, the test list
-package|test-package.sh||quick|5|300|makepkg|the root-helper package: exact files, owners, modes, polkit policy, no sudoers rule
-compat|test-compat.sh||commit|5|240|-|doctor and stats over the T480s capture and 13 fake machines (other ThinkPads, broken and non-ThinkPad)
-cli-link|test-cli-link.sh||quick|35|240|-|the command and man-page links the plugin makes, in a fake home
-panel|test-panel.sh||base|30|420|plugin in the bar|the panel opens/closes (also Escape), no shell-log errors, survives disable and re-enable
-follow|test-follow.sh||base|30|300|plugin in the bar|the power-profile follower reacts, stays single, leaves AC alone
-helper|test-helper.sh||base|15|420|helper, thinkfan|each curve applies, manual levels reach the kernel, rapid restarts, bad input rejected
-effect|test-effect.sh||base|60|420|helper, thinkfan|the fan really speeds up, slows down and stops (RPM, not just the level)
-safety-net|test-safety.sh|PARTS=net|base|10|300|sudo|every pinned manual level gets the full-speed safety row (config)
-safety-reload|test-safety.sh|PARTS=reload|base|20|600|sudo|reloading the thinkpad_acpi driver leaves LEDs, battery limits, hotkeys and radios intact
+REGISTRY='check|check.sh||commit|1|240|-|manifest, shell syntax, executable bits, man-page lint, curve files, profile safety rule, QML lint
+marketplace|check-marketplace.sh||commit|1|240|-|the marketplace publishing, development and security-baseline rules
+readme|test-readme.sh||commit|1|240|-|README, DEVELOPING.md and the man page match the code, the paths, the curve numbers, the test list
+package|test-package.sh||quick|6|300|makepkg|the root-helper package: exact files, owners, modes, polkit policy, no sudoers rule
+compat|test-compat.sh||commit|7|240|-|doctor and stats over the T480s capture and 13 fake machines (other ThinkPads, broken and non-ThinkPad)
+cli-link|test-cli-link.sh||quick|31|240|-|the command and man-page links the plugin makes, in a fake home
+panel|test-panel.sh||base|31|420|plugin in the bar|the panel opens/closes (also Escape), no shell-log errors, survives disable and re-enable
+follow|test-follow.sh||base|31|300|plugin in the bar|the power-profile follower reacts, stays single, leaves AC alone
+helper|test-helper.sh||base|25|420|helper, thinkfan|each curve applies, manual levels reach the kernel, rapid restarts, bad input rejected
+effect|test-effect.sh||base|56|420|helper, thinkfan|the fan really speeds up, slows down and stops (RPM, not just the level)
+safety-net|test-safety.sh|PARTS=net|base|15|300|sudo|every pinned manual level gets the full-speed safety row (config)
+safety-reload|test-safety.sh|PARTS=reload|base|21|600|sudo|reloading the thinkpad_acpi driver leaves LEDs, battery limits, hotkeys and radios intact
 safety-handoff|test-safety.sh|PARTS=handoff|base|20|300|sudo|when thinkfan stops or is disabled (what removing the plugin does) the firmware takes the fan back within 10 s
-uninstall|test-uninstall.sh||release|300|1200|sudo, network|the README Uninstall leaves nothing on the system; the plugin reinstalls
-scan|check-marketplace.sh|MARKETPLACE_SCAN=1|release|20|300|network, node, pushed commit|the official marketplace security scanner on the pushed commit: no findings, no new capability'
+uninstall|test-uninstall.sh||release|75|1200|sudo, network|the README Uninstall leaves nothing on the system; the plugin reinstalls
+scan|check-marketplace.sh|MARKETPLACE_SCAN=1|release|7|300|network, node, pushed commit|the official marketplace security scanner on the pushed commit: no findings, no new capability'
 
 ro() { [ "$1" = commit ] || [ "$1" = quick ]; }   # the read-only levels run in parallel
 level_of() { case "$1" in commit) echo 1;; quick) echo 2;; base) echo 3;; release) echo 4;; *) echo 9;; esac; }

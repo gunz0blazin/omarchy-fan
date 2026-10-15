@@ -19,14 +19,14 @@ table and exits non-zero if anything failed. There are four levels; each one inc
     bash tests/full-test.sh              # commit: the small check, for every commit (about 10 seconds, read-only)
     bash tests/full-test.sh --quick      # commit + the package and CLI-link suites (about 35 seconds, still read-only)
     bash tests/full-test.sh --base       # quick + the device suites: before merging to main (about 3.5 minutes, budget 4)
-    bash tests/full-test.sh --release    # base + a clean uninstall/reinstall + the marketplace scanner: before merging to main (about 8 minutes)
+    bash tests/full-test.sh --release    # base + a clean uninstall/reinstall + the marketplace scanner: before merging to main (about 4.5 minutes)
 
 | Level | Suites | Time | Needs | Use it |
 |---|---|---|---|---|
 | **commit** | `check`, `marketplace`, `readme`, `compat` | ~10 s | nothing (any machine) | every commit: the code parses and runs against fake machines, the manifest and marketplace rules hold, the docs still match the code |
 | **quick** | commit + `package`, `cli-link` | ~35 s | `makepkg` | when you touch packaging or the command links |
 | **base** | quick + `panel`, `follow`, `helper`, `effect`, `safety-net`, `safety-reload`, `safety-handoff` | ~3.5 min | the ThinkPad, the plugin in the bar, `sudo` | before merging to `main`: the plugin works on the device, the fan obeys, the safety rows are there, the firmware takes over when the plugin goes |
-| **release** | base + `uninstall`, `scan` | ~8 min | as base, plus network, `node` and a pushed commit | before merging to `main`: a clean uninstall leaves nothing behind, and the marketplace's own security scanner passes on the pushed commit |
+| **release** | base + `uninstall`, `scan` | ~4.5 min | as base, plus network, `node` and a pushed commit | before merging to `main`: a clean uninstall leaves nothing behind, and the marketplace's own security scanner passes on the pushed commit |
 
 The small check (`commit`) is the everyday one. `--base` and `--release` are the big checks, run before a merge to
 `main`: they change the fan, restart the shell and need `sudo`.
