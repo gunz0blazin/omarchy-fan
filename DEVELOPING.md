@@ -78,7 +78,7 @@ level, how long it may take and what it needs. Every script also runs on its own
 | `safety-net` | `tests/test-safety.sh` (`PARTS=net`) | base | `sudo` | every pinned manual level 0-7 gets a full-speed safety row at 80C and up; level 8 is a single full-speed row |
 | `safety-reload` | `tests/test-safety.sh` (`PARTS=reload`) | base | `sudo` | reloading the `thinkpad_acpi` driver (the boot hook does) leaves the LEDs, battery limits, hotkeys, input devices and radios as they were, and the fan still answers |
 | `safety-handoff` | `tests/test-safety.sh` (`PARTS=handoff`) | base | `sudo` | when thinkfan stops or is disabled (what removing the plugin does), the firmware takes the fan back within 10 s |
-| `uninstall` | `tests/test-uninstall.sh` | release | `sudo`, network | runs the README's uninstall one-liner (and checks the Uninstall section sits right after Install), then checks nothing of the plugin is left (packages, files, links, saved state, services, the bar entry), and installs the plugin again |
+| `uninstall` | `tests/test-uninstall.sh` | release | `sudo`, network | runs the README's uninstall one-liner (and checks the Uninstall command sits right after Install), then checks nothing of the plugin is left (packages, files, links, saved state, services, the bar entry), and installs the plugin again |
 | `scan` | `tests/check-marketplace.sh` (`MARKETPLACE_SCAN=1`) | release | network, `node`, a pushed commit | the marketplace's own security scanner on the pushed commit: no findings, no capability beyond the ones already accepted |
 
 `tests/full-test.sh` is the runner, not a test. `tests/lib.sh` holds the shared helpers (`t`, `ok`, `bad`, `skip`, the fan
