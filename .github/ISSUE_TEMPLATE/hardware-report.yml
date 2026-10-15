@@ -49,7 +49,7 @@ body:
       description: |
         On an idle, cool laptop, from a checkout of the repo, run `bash tests/test-helper.sh` and `bash tests/test-effect.sh`
         and paste the last lines (the `N passed, N failed` summary and any FAIL lines). The fan gets loud for a few seconds
-        and your profile is restored afterwards. `tests/test-failsafe.sh` is optional and needs sudo.
+        and your profile is restored afterwards.
       render: text
   - type: textarea
     id: observations

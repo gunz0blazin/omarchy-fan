@@ -1,5 +1,5 @@
 #!/bin/bash
-# omarchyfan quiet|balanced|performance|manual <0-8>|follow on|off|status|current|stats|report|doctor|help   (man omarchyfan)
+# omarchyfan quiet|balanced|performance|manual <0-8>|follow on|off|status|current|stats|report|doctor|reapply|help   (man omarchyfan)
 # The user-facing half of the plugin. Changing the fan goes through the root helper
 # (/usr/lib/omarchy-fan/helper) with pkexec; everything else is plain reads.
 HELPER=/usr/lib/omarchy-fan/helper
@@ -10,10 +10,16 @@ kernel_log() {
   if [ -n "$R" ]; then cat "$R/kernel.log" 2>/dev/null
   else journalctl -k -b -q --no-pager 2>/dev/null || dmesg 2>/dev/null; fi
 }
+# OMARCHYFAN_HELPER_VERSION is also for the tests only: it stands in for the installed helper package's version
 dir=$HOME/.config/omarchy/fan          # per-user state: active profile, manual level, follow flag
 mkdir -p "$dir"
 
+plugin_root=$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)
 active() { cat "$dir/active" 2>/dev/null || echo balanced; }
+# the helper package this plugin ships (packaging/PKGBUILD) and the one that is installed: "update-available" when the installed one is older
+want_helper() { awk -F= '/^pkgver=/{v=$2} /^pkgrel=/{r=$2} END{if (v != "") print v "-" r}' "$plugin_root/packaging/PKGBUILD" 2>/dev/null; }
+have_helper() { echo "${OMARCHYFAN_HELPER_VERSION:-$(pacman -Q omarchy-fan-helper 2>/dev/null | cut -d' ' -f2)}"; }
+helper_outdated() { local have want; have=$(have_helper); want=$(want_helper); [ -n "$have" ] && [ -n "$want" ] && [ "$(vercmp "$have" "$want" 2>/dev/null)" = -1 ]; }
 # the controller reports 65535 for a moment while the fan changes speed; that's "no reading", not an RPM
 fan_proc() { awk -v k="$1" '$1==k":"{ if (k=="speed" && $2>20000) exit; print $2 }' "$R/proc/acpi/ibm/fan" 2>/dev/null; }
 temp() { awk '/^temperatures:/{print $2}' "$R/proc/acpi/ibm/thermal" 2>/dev/null; }
@@ -24,6 +30,7 @@ setup_state() {
   elif [ ! -x "$HELPER" ]; then echo no-helper
   elif [ "$(cat "$R/sys/module/thinkpad_acpi/parameters/fan_control" 2>/dev/null)" != Y ] \
     || ! systemctl is-active --quiet thinkfan; then echo needs-enable
+  elif helper_outdated; then echo update-available
   else echo ready; fi
 }
 
@@ -82,7 +89,9 @@ doctor() {
     fi
   done
   if command -v thinkfan >/dev/null; then res ok "thinkfan is installed"; else res warn "thinkfan is not installed (needed; AUR package thinkfan)"; fi
-  if [ -x "$HELPER" ]; then res ok "root helper is installed"; else res warn "root helper is not installed (install-helper.sh or the omarchy-fan-helper package)"; fi
+  if [ ! -x "$HELPER" ]; then res warn "root helper is not installed (install-helper.sh or the omarchy-fan-helper package)"
+  elif helper_outdated; then res warn "root helper $(have_helper) is older than the $(want_helper) this plugin ships: press 'Update fan control' in the panel, or run install-helper.sh"
+  else res ok "root helper is installed ($(have_helper))"; fi
   echo
   echo "setup state: $(setup_state)"
   return $bad
@@ -113,6 +122,11 @@ case "${1:-status}" in
   # report = the doctor checks + a short fan test + a summary to paste into a Hardware report issue (bin/omarchyfan-report)
   report) shift; exec "$(dirname "$(readlink -f "$0")")/omarchyfan-report" "$@" ;;
   doctor) doctor; exit $? ;;
+  reapply)   # put the active profile (or pinned level) back through the helper: copies the installed curves into /etc/thinkfan.yaml again
+    case "$(active)" in
+      manual) exec "$0" manual "$(cat "$dir/manual-level" 2>/dev/null || echo 3)" ;;
+      *) exec "$0" "$(active)" ;;
+    esac ;;
   current) active ;;
   status)
     echo "profile: $(active)  temp: $(temp)°C  fan: $(fan_proc speed) RPM  setup: $(setup_state)"
@@ -120,7 +134,7 @@ case "${1:-status}" in
   help|-h|--help)
     # show the manual (man omarchyfan); if it isn't installed yet, fall back to a short summary
     if man -w omarchyfan >/dev/null 2>&1; then exec man omarchyfan; fi
-    echo "usage: omarchyfan quiet|balanced|performance | manual <0-8> | follow on|off | status | current | stats | report | doctor | help"
+    echo "usage: omarchyfan quiet|balanced|performance | manual <0-8> | follow on|off | status | current | stats | report | doctor | reapply | help"
     echo "(the full manual, 'man omarchyfan', is linked in when the fan widget first starts in the bar)" ;;
-  *) echo "usage: omarchyfan quiet|balanced|performance|manual <0-8>|follow on|off|status|report|doctor   (omarchyfan help for the manual)"; exit 1 ;;
+  *) echo "usage: omarchyfan quiet|balanced|performance|manual <0-8>|follow on|off|status|report|doctor|reapply   (omarchyfan help for the manual)"; exit 1 ;;
 esac

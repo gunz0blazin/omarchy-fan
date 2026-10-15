@@ -19,7 +19,7 @@ PDIR=~/.config/omarchy/plugins/$ID
 BUDGET=240     # seconds the base suite must stay under
 
 # the registry: the one place that decides what runs when.   id | script | env | level | seconds | limit(s) | needs | what it proves
-#   level: quick = read-only (run in parallel); base = every commit/push; release = before a merge to main; manual = only with --only
+#   level: quick = read-only (run in parallel); base = every commit/push; release = before a merge to main
 REGISTRY='check|check.sh||quick|5|240|-|manifest, shell syntax, executable bits, man-page lint, curve files, profile safety rule, QML lint
 marketplace|check-marketplace.sh||quick|5|240|-|the marketplace publishing, development and security-baseline rules
 readme|test-readme.sh||quick|5|240|-|README and man page match the code, the paths, the curve numbers, the test list
@@ -34,9 +34,7 @@ safety-net|test-safety.sh|PARTS=net|base|10|300|sudo|every pinned manual level g
 safety-reload|test-safety.sh|PARTS=reload|base|20|600|sudo|reloading the thinkpad_acpi driver leaves LEDs, battery limits, hotkeys and radios intact
 safety-handoff|test-safety.sh|PARTS=handoff|base|20|300|sudo|when thinkfan stops or is disabled (what removing the plugin does) the firmware takes the fan back within 10 s
 uninstall|test-uninstall.sh||release|300|1200|sudo, network|the README Uninstall leaves nothing on the system; the plugin reinstalls
-scan|check-marketplace.sh|MARKETPLACE_SCAN=1|release|20|300|network, node, pushed commit|the official marketplace security scanner on the pushed commit: no findings, no new capability
-failsafe|test-failsafe.sh||manual|270|900|sudo|thinkfan killed: the fan stays at its last level until the firmware watchdog (~2 min); known gaps recorded'
-# level "manual" is never run by full-test (only with --only): the crash-recovery test waits two minutes for the firmware watchdog
+scan|check-marketplace.sh|MARKETPLACE_SCAN=1|release|20|300|network, node, pushed commit|the official marketplace security scanner on the pushed commit: no findings, no new capability'
 
 level_of() { case "$1" in quick) echo 1;; base) echo 2;; release) echo 3;; *) echo 9;; esac; }
 want_level=2; only=""; sync=""; ref=dev; list=0

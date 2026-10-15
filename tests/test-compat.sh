@@ -48,6 +48,16 @@ t "65535 speed: doctor explains it (exit 0)" "$(has "$d" 'warn +fan speed reads 
 d=$(doc odd-levels)
 t "levels 0-9: warns the profiles assume 0-7" "$(has "$d" 'warn +fan levels are 0-9')" yes
 
+echo "-- the helper package version (doctor says when the installed helper is older than the plugin's)"
+if [ -x /usr/lib/omarchy-fan/helper ]; then
+  d=$(OMARCHYFAN_HELPER_VERSION=0.0.1-1 OMARCHYFAN_ROOT=$FX/t480s "$CLI" doctor 2>&1)
+  t "an older installed helper: doctor warns, with both versions" "$(has "$d" 'warn +root helper 0\.0\.1-1 is older than the [0-9.]+-[0-9]+ this plugin ships')" yes
+  t "an older installed helper: doctor says what to press" "$(has "$d" "Update fan control")" yes
+  d=$(OMARCHYFAN_HELPER_VERSION=99.0-1 OMARCHYFAN_ROOT=$FX/t480s "$CLI" doctor 2>&1)
+  t "a newer installed helper: no warning, the version is shown" "$(has "$d" 'ok +root helper is installed \(99\.0-1\)')" yes
+else
+  skip "helper version checks (the root helper is not installed on this machine)"
+fi
 echo "-- broken or missing pieces: clear failures, no crash"
 d=$(doc bad-first-sensor)
 t "first sensor unusable: FAIL, exit 1" "$(rc bad-first-sensor)" 1

@@ -31,6 +31,19 @@ for n in 1 2 3 4 5 6 7 8 0; do "$CLI" manual $n >/dev/null; done; sleep 2
 t "thinkfan survives 9 rapid restarts" "$(systemctl is-active thinkfan)" active
 t "the last rapid change was applied" "$(fan_level)" 0
 
+echo "-- an outdated helper is noticed (update-available), and reapply puts the profile back through the helper"
+t "the installed helper is current: setup is ready" "$("$CLI" stats | awk -F'\t' '$1=="setup"{print $2}')" ready
+t "a simulated older helper: setup is update-available" "$(OMARCHYFAN_HELPER_VERSION=0.0.1-1 "$CLI" stats | awk -F'\t' '$1=="setup"{print $2}')" update-available
+t "a simulated newer helper: setup is ready" "$(OMARCHYFAN_HELPER_VERSION=99.0-1 "$CLI" stats | awk -F'\t' '$1=="setup"{print $2}')" ready
+"$CLI" quiet >/dev/null; sleep 1
+echo "# stale curve, as left behind by an older helper" | sudo -n tee -a /etc/thinkfan.yaml >/dev/null 2>&1 || true
+"$CLI" reapply >/dev/null 2>&1; sleep 2
+t "reapply puts the active profile back through the helper (the config is the installed quiet curve again)" "$(cmp -s /etc/thinkfan.yaml /usr/share/omarchy-fan/profiles/quiet.yaml && echo yes || echo no)" yes
+t "reapply leaves the active profile as it was" "$("$CLI" current)" quiet
+"$CLI" manual 3 >/dev/null; sleep 1; "$CLI" reapply >/dev/null 2>&1; sleep 2
+t "reapply keeps a pinned manual level (level 3)" "$(fan_level)" 3
+t "reapply keeps the profile 'manual'" "$("$CLI" current)" manual
+
 echo "-- the root helper rejects bad input (and changes nothing)"
 "$CLI" manual 2 >/dev/null; sleep 1
 before=$(md5sum < /etc/thinkfan.yaml)

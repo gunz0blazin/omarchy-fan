@@ -42,6 +42,8 @@ Prefer to do step 2 yourself? Run `install-helper.sh` from the plugin folder
 - **One-line install, and a README that starts with it.** New [Updating](#updating) section, and an
   [Uninstall](#uninstall) that now removes everything the plugin put on your system: the helper, thinkfan, the curve file, your
   saved choices and the build cache.
+- **An "Update fan control" button.** When a plugin update ships a newer fan helper, the panel says so and updates it in one
+  press, and `omarchyfan reapply` puts your profile back through it.
 - **The icon is suggested on the right side of the bar** when you add the plugin, a clearer label under "Follow power profile",
   and a sharper panel picture.
 
@@ -55,12 +57,9 @@ Prefer to do step 2 yourself? Run `install-helper.sh` from the plugin folder
   immediately.
 
 **Upgrading from 1.0.0.** The plugin updates itself, but the fan helper is a separate system package, so the two "Safer" changes
-above need it re-installed once. After the [update](#updating), run:
-
-    bash ~/.config/omarchy/plugins/io.github.gunz0blazin.thinkpad-fan/install-helper.sh
-
-then press your fan profile once more in the panel (that copies the new curve into place). Everything else works straight after
-the update and a shell restart.
+above need it re-installed once. After the [update](#updating) and the shell restart, the panel shows **Update fan control**: press
+it and enter your sudo password. (Or run `install-helper.sh` from the plugin folder yourself.) It re-applies your fan profile with
+the new curves at the end. Everything else works straight after the update.
 
 *For developers:* one command, `bash tests/full-test.sh`, runs the whole test stack in about three minutes; see
 [For developers and testers](#for-developers-and-testers).
@@ -92,6 +91,7 @@ The panel calls the same script you can use from a terminal:
     omarchyfan follow on|off                   # follow the power profile or not
     omarchyfan status
     omarchyfan doctor                          # is this machine supported? (read-only report)
+    omarchyfan reapply                         # put the active profile back through the helper (after a helper update)
     omarchyfan report                          # doctor + a short fan test + a summary to paste into a Hardware report
     omarchyfan help                            # opens the manual
 
@@ -133,6 +133,11 @@ to run when [reporting a new model](#report-a-new-thinkpad-model).
 
 The Omarchy shell doesn't reload plugin code by itself, so the restart (the bar redraws for a second) is what makes the
 new version run.
+
+The fan helper is a separate system package, so an update can come with a newer one. When it does, the panel shows
+**Update fan control**: press it, and enter your sudo password in the terminal that opens (it is the same installer as
+the first time, and it re-applies your fan profile with the new curves at the end). Until you do, the fan keeps working
+as before. `omarchyfan doctor` also tells you when the helper is older than the plugin.
 
 ## Uninstall
 
@@ -278,8 +283,7 @@ and exits non-zero if anything failed. The read-only suites run in parallel with
 | **base** (every commit) | quick + `panel`, `follow`, `helper`, `effect`, `safety-net`, `safety-reload`, `safety-handoff` | ~3 min | the plugin loads and works on the device, the fan obeys, every pinned level has its safety row, the driver reload is harmless, the firmware takes over when the plugin goes |
 | **release** (before main) | base + `uninstall`, `scan` | ~8 min | a clean uninstall that leaves nothing behind, and the marketplace's own security scanner on the pushed commit |
 
-Not run by `full-test` (run it by hand with `--only failsafe`): `failsafe`, which kills thinkfan and waits two minutes for the
-firmware watchdog. Nothing in the stack loads or heats the CPU.
+Nothing in the stack loads or heats the CPU.
 
 Every script below still runs on its own (`bash tests/<name>.sh`); `full-test.sh` only organizes them.
 
@@ -291,7 +295,7 @@ All the tests live in `tests/` and are run by hand. They are grouped by how much
 | **local** | a throwaway home directory | `tests/test-cli-link.sh` |
 | **shell** | briefly uses, and for one test disables and re-enables, the plugin in your running bar | `tests/test-panel.sh`, `tests/test-follow.sh` |
 | **hardware** | changes your fan profile (and, for the follower test, your power profile), then restores them | `tests/test-helper.sh`, `tests/test-effect.sh` |
-| **destructive** | needs sudo; stops thinkfan or reloads the driver for a few seconds, or removes the plugin and puts it back | `tests/test-safety.sh`, `tests/test-uninstall.sh`, `tests/test-failsafe.sh` |
+| **destructive** | needs sudo; stops thinkfan or reloads the driver for a few seconds, or removes the plugin and puts it back | `tests/test-safety.sh`, `tests/test-uninstall.sh` |
 
 What each one checks (`full-test.sh` is the runner above, not a test):
 
@@ -321,9 +325,6 @@ What each one checks (`full-test.sh` is the runner above, not a test):
   `reload` (reloading the `thinkpad_acpi` driver, which the boot hook does, leaves the LEDs, battery limits, hotkeys, input
   devices and radios exactly as they were, and the fan still answers), and
   `handoff` (when thinkfan stops or is disabled, which is what removing the plugin does, the firmware takes the fan back within 10 s).
-- `test-failsafe.sh`: after thinkfan is stopped (cleanly or killed), the fan returns to firmware control once the
-  ThinkPad's 120 s fan watchdog fires. Takes about five minutes. A crash leaving the fan at its last level until then,
-  and thinkfan not restarting itself, are recorded as known gaps.
 - `test-uninstall.sh`: runs the README's own Uninstall commands, then checks nothing of the plugin is left on the system
   (packages, files, links, saved state, services, the bar entry, anything else with its name), and installs the plugin
   again afterwards. Needs sudo, network and an idle laptop; takes a few minutes.

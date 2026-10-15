@@ -20,5 +20,9 @@ echo
 echo
 echo "==> enabling fan control"
 pkexec /usr/lib/omarchy-fan/helper enable
+
+echo
+echo "==> applying your fan profile with the installed curves"
+"$here/bin/omarchyfan" reapply || true
 echo
 echo "Done. Open the fan icon in the bar."

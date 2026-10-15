@@ -12,7 +12,7 @@ omarchyfan \- control a ThinkPad's fan from the Omarchy bar or a terminal
 .br
 .B omarchyfan follow on | off
 .br
-.B omarchyfan status | current | stats | report | doctor | help
+.B omarchyfan status | current | stats | report | doctor | reapply | help
 .SH DESCRIPTION
 .B omarchyfan
 is the command behind the ThinkPad Fan Control plugin for the Omarchy bar. The fan panel in the bar calls exactly
@@ -127,6 +127,14 @@ The exit status is 1 if any line is
 .BR FAIL ,
 otherwise 0. Paste the output into an issue when asking about a new model.
 .TP
+.B reapply
+Put the active profile (or the pinned manual level) back through the root helper. That copies the curves installed with the helper
+package into
+.I /etc/thinkfan.yaml
+again, which is how a new curve takes effect after the helper package is updated.
+.B install\-helper.sh
+runs it for you at the end, so the panel's update button needs no extra step.
+.TP
 .B help | \-h | \-\-help
 Show this page, or a short summary if the page is not installed.
 .SH PROFILES
@@ -192,6 +200,18 @@ The helper is there, but thinkfan is not running or the driver's
 .B fan_control
 option is off. Press the panel's enable button, or run
 .BR "pkexec /usr/lib/omarchy\-fan/helper enable" .
+.TP
+.B update\-available
+Everything works, but the installed helper package is older than the one this plugin ships (for example after
+.BR "omarchy plugin update" ).
+The panel offers an
+.B Update fan control
+button; it runs
+.IR install\-helper.sh ,
+which rebuilds and installs the new helper and then runs
+.BR reapply .
+.B doctor
+reports the two versions. The fan keeps working in the meantime.
 .PP
 Until it is ready, the fan stays on the laptop firmware's own control, which is safe.
 .SH EXAMPLES
