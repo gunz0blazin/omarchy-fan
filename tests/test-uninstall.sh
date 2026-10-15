@@ -55,11 +55,13 @@ trap restore EXIT
 
 echo "-- the README's Uninstall block, as written"
 block=$(awk '/^## Uninstall/{on=1;next} /^## /{on=0} on && /^    [^ ]/{sub(/^    /,""); print}' "$README")
-t "the README has an Uninstall block with commands" "$([ "$(echo "$block" | wc -l)" -ge 5 ] && echo yes || echo no)" yes
+t "the README has an Uninstall one-liner" "$([ -n "$block" ] && echo "$block" | grep -q 'omarchy plugin remove' && echo yes || echo no)" yes
+oneliner=$(awk '/^## Install/{on=1;next} /^## /{on=0} on && /^    omarchy plugin remove /{sub(/^    /,""); print}' "$README")
+t "the one-liner under Install is the same as the Uninstall block" "$([ "$oneliner" = "$block" ] && echo yes || echo no)" yes
 # only changes needed to run unattended: sudo without a prompt, pacman and the plugin remove without a question
 script=$(mktemp)
 echo "$block" | sed -e 's/\bsudo /sudo -n /g' -e 's/pacman -Rns/pacman -Rns --noconfirm/' \
-  -e 's#\(omarchy plugin remove [^ ]*\)#\1 --yes#' > "$script"
+  -e 's#\(omarchy plugin remove [^ ;]*\)#\1 --yes#' > "$script"
 echo "$block" | sed 's/^/   $ /'
 bash "$script" > /tmp/omarchyfan-uninstall.$$.log 2>&1; rc=$?
 t "every command in the block succeeds" "$rc" 0
