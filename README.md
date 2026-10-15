@@ -116,7 +116,7 @@ one-line notice that the name is old. **It will be removed in a future release**
 
 To check your machine, run `omarchyfan doctor`. It only reads, and prints one line per check (`ok`, `warn` or `FAIL`):
 the model, whether the `thinkpad_acpi` driver and its fan control are there, the fan levels, whether the fan speed and
-the temperature the curves follow can be read, and whether there is a second fan (the plugin only drives the first). A
+the temperature the curves follow can be read, and whether there is a second fan (and whether the kernel sets its level along with the first). A
 `FAIL` means it cannot work on that machine.
 
 | Model | Status |

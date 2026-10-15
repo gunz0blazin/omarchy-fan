@@ -5,6 +5,11 @@
 HELPER=/usr/lib/omarchy-fan/helper
 # OMARCHYFAN_ROOT is for the tests only: it moves the hardware files (/proc/acpi/ibm, /sys/...) under a fixture folder
 R=${OMARCHYFAN_ROOT:-}
+# The kernel's own messages since boot. Under OMARCHYFAN_ROOT, the fixture's kernel.log stands in for them.
+kernel_log() {
+  if [ -n "$R" ]; then cat "$R/kernel.log" 2>/dev/null
+  else journalctl -k -b -q --no-pager 2>/dev/null || dmesg 2>/dev/null; fi
+}
 dir=$HOME/.config/omarchy/fan          # per-user state: active profile, manual level, follow flag
 mkdir -p "$dir"
 
@@ -63,7 +68,18 @@ doctor() {
   else res FAIL "/proc/acpi/ibm/thermal is missing: the curves have no sensor"; fi
   for h in "$R"/sys/class/hwmon/hwmon*; do
     [ "$(cat "$h/name" 2>/dev/null)" = thinkpad ] || continue
-    [ -e "$h/fan2_input" ] && res warn "this machine has a second fan (fan2): the plugin only drives the first"
+    [ -e "$h/fan2_input" ] || continue
+    # thinkpad_acpi writes every fan level to both fans once it has secondary fan control, and thinkfan sets the
+    # level through it, so the curves drive fan2 too. The kernel only says whether it does in its log.
+    case "$(kernel_log | grep -o 'secondary fan control [a-z &]*' | tail -1)" in
+      *"detected & enabled"|*"control enabled") res ok "second fan (fan2): the kernel sets each fan level on both fans" ;;
+      *"not supported") res warn "second fan (fan2) is reported, but the kernel can't set its level: only the first follows the curves" ;;
+      *) res warn "second fan (fan2) is reported; the kernel log doesn't say whether it sets its level too (look for 'secondary fan control')" ;;
+    esac
+    f1=$(cat "$h/fan1_input" 2>/dev/null); f2=$(cat "$h/fan2_input" 2>/dev/null)
+    if [[ $f1 =~ ^[0-9]+$ ]] && [ "$f1" -gt 0 ] && [ "$f1" = "$f2" ]; then
+      echo "      fan2 reads exactly like fan1 ($f1 RPM): probably one fan reported twice"
+    fi
   done
   if command -v thinkfan >/dev/null; then res ok "thinkfan is installed"; else res warn "thinkfan is not installed (needed; AUR package thinkfan)"; fi
   if [ -x "$HELPER" ]; then res ok "root helper is installed"; else res warn "root helper is not installed (install-helper.sh or the omarchy-fan-helper package)"; fi
