@@ -92,6 +92,7 @@ The panel calls the same script you can use from a terminal:
     omarchyfan follow on|off                   # follow the power profile or not
     omarchyfan status
     omarchyfan doctor                          # is this machine supported? (read-only report)
+    omarchyfan report                          # doctor + a short fan test + a summary to paste into a Hardware report
     omarchyfan help                            # opens the manual
 
 The full reference is a man page: `omarchyfan help` or `man omarchyfan` (the source is `man/omarchyfan.1`).
@@ -117,7 +118,8 @@ one-line notice that the name is old. **It will be removed in a future release**
 To check your machine, run `omarchyfan doctor`. It only reads, and prints one line per check (`ok`, `warn` or `FAIL`):
 the model, whether the `thinkpad_acpi` driver and its fan control are there, the fan levels, whether the fan speed and
 the temperature the curves follow can be read, and whether there is a second fan (and whether the kernel sets its level along with the first). A
-`FAIL` means it cannot work on that machine.
+`FAIL` means it cannot work on that machine. `omarchyfan report` runs the same checks and adds a short fan test; it is what
+to run when [reporting a new model](#report-a-new-thinkpad-model).
 
 | Model | Status |
 |---|---|
@@ -247,16 +249,17 @@ Fan curves are driven by [thinkfan](https://github.com/vmatare/thinkfan).
 
 This is how a model gets added to the table above.
 
-1. Install the plugin and run `omarchyfan doctor`. It only reads files.
-2. Optional, but it lets the model be added as a test fixture: run
-   `cat /proc/acpi/ibm/fan /proc/acpi/ibm/thermal; cat /sys/module/thinkpad_acpi/parameters/fan_control`.
-3. Optional, on an idle and cool laptop: clone the repo and run `bash tests/test-helper.sh` and
-   `bash tests/test-effect.sh`. They briefly change your fan (it gets loud for a few seconds) and restore your profile.
-4. Open a [Hardware report](https://github.com/gunz0blazin/omarchy-fan/issues/new?template=hardware-report.yml) issue
-   and paste the output into the form. Say whether each profile audibly changes the fan.
+1. Install the plugin, and with the laptop idle and cool run `omarchyfan report`. It runs the `doctor` checks, then asks
+   before it runs the fan at full speed, a middle level and off (about 2 minutes, the fan gets loud) and puts your profile
+   back. `omarchyfan report --read-only` skips the fan test. It prints about eight lines.
+2. Open a [Hardware report](https://github.com/gunz0blazin/omarchy-fan/issues/new?template=hardware-report.yml) issue
+   and paste those lines into the form. Say whether each profile audibly changes the fan.
+3. Optional, but it lets the model be added as a test fixture: attach `~/omarchyfan-report.txt`, which `report` wrote. It
+   holds the raw fan and temperature files and contains no serial number.
 
-A model is marked "Tested" once a report shows `doctor` with no `FAIL` and passing hardware tests, and its raw files are
-added to `tests/fixtures/`.
+A model is marked "Tested" once a report shows `result  PASS` (`doctor` with no `FAIL` and the fan test passing), and its raw
+files are added to `tests/fixtures/`. A report that only ran the `doctor` checks says `DOCTOR OK, fan test skipped`; that is
+useful, but it is not enough to mark a model "Tested".
 
 ## Development and tests
 

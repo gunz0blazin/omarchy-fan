@@ -1,0 +1,198 @@
+#!/bin/bash
+# omarchyfan report [--read-only] [--yes]      (man omarchyfan)
+# One command for testers. It runs the doctor checks, then (after asking) runs the fan at full speed, a middle level and
+# off to see that it really obeys, and prints a short summary to paste into a Hardware report issue. The full detail goes
+# to a file. Reached through "omarchyfan report"; it is not meant to be run by itself.
+#
+# What it touches: the fan profile, briefly (put back at the end, also if interrupted). It aborts and puts the fan on
+# Performance if the CPU reaches 80C, and it does not start the fan test above 65C. It reads only these files: the
+# DMI model/BIOS fields, /proc/acpi/ibm/{fan,thermal}, the thinkpad_acpi fan_control parameter, the thinkpad hwmon fan
+# inputs and the kernel's "secondary fan control" lines. No serial numbers, no hostname, no username.
+#
+# OMARCHYFAN_ROOT (tests only) moves the hardware files under a fixture folder; the fan test never runs there.
+# OMARCHYFAN_REPORT_FILE (tests only) changes where the detail file goes.
+CLI=$(dirname "$(readlink -f "$0")")/omarchyfan
+here=$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)
+R=${OMARCHYFAN_ROOT:-}
+out=${OMARCHYFAN_REPORT_FILE:-$HOME/omarchyfan-report.txt}
+usage="usage: omarchyfan report [--read-only] [--yes]"
+
+ro=0; yes=0
+for a in "$@"; do
+  case "$a" in
+    --read-only) ro=1 ;;
+    -y|--yes) yes=1 ;;
+    -h|--help) echo "$usage"; exit 0 ;;
+    *) echo "$usage"; exit 1 ;;
+  esac
+done
+
+field()  { cat "$R/sys/class/dmi/id/$1" 2>/dev/null || echo unknown; }
+rpm()    { awk '$1=="speed:"{ if ($2<=20000) print $2 }' "$R/proc/acpi/ibm/fan" 2>/dev/null; }   # 65535 = no reading
+klevel() { awk '$1=="level:"{print $2}' "$R/proc/acpi/ibm/fan" 2>/dev/null; }
+temp()   { awk '/^temperatures:/{print $2}' "$R/proc/acpi/ibm/thermal" 2>/dev/null; }
+hwmon_fan() { # <fan input name>: the value of that fan on the thinkpad hwmon device, if there is one
+  local h
+  for h in "$R"/sys/class/hwmon/hwmon*; do
+    [ "$(cat "$h/name" 2>/dev/null)" = thinkpad ] && [ -r "$h/$1" ] && { cat "$h/$1"; return; }
+  done
+}
+kernel_log() {
+  if [ -n "$R" ]; then cat "$R/kernel.log" 2>/dev/null
+  else journalctl -k -b -q --no-pager 2>/dev/null || dmesg 2>/dev/null; fi
+}
+
+log=""
+note() { log+="$*"$'\n'; }
+
+# ---- 1. the doctor checks
+doc=$("$CLI" doctor 2>&1)
+n_ok=$(grep -c '^ok ' <<<"$doc")
+n_warn=$(grep -c '^warn ' <<<"$doc")
+n_fail=$(grep -c '^FAIL ' <<<"$doc")
+first_bad=$(grep -m1 '^FAIL ' <<<"$doc" | sed 's/^FAIL *//')
+[ -n "$first_bad" ] || first_bad=$(grep -m1 '^warn ' <<<"$doc" | sed 's/^warn *//')
+machine="$(field sys_vendor) $(field product_version) ($(field product_name))"
+ver=$(sed -n 's/.*"version": *"\([^"]*\)".*/\1/p' "$here/manifest.json" 2>/dev/null | head -1)
+sha=$(git -C "$here" rev-parse --short HEAD 2>/dev/null)
+
+# ---- 2. decide whether the fan test can run, and ask
+skip_reason=""
+if [ "$ro" = 1 ]; then skip_reason="--read-only"
+elif [ -n "$R" ]; then skip_reason="fixture folder, no real fan"
+elif [ "$n_fail" -gt 0 ]; then skip_reason="doctor reported FAIL"
+else
+  state=$("$CLI" stats 2>/dev/null | awk -F'\t' '$1=="setup"{print $2}')
+  start_temp=$(temp)
+  if [ "$state" != ready ]; then skip_reason="fan control is not set up, setup state: ${state:-unknown}"
+  elif ! [[ $start_temp =~ ^[0-9]+$ ]]; then skip_reason="no temperature reading"
+  elif [ "$start_temp" -gt 65 ]; then skip_reason="the CPU is warm at ${start_temp}C, run it again when the laptop is idle"
+  fi
+fi
+if [ -z "$skip_reason" ] && [ "$yes" = 0 ]; then
+  if [ -t 0 ]; then
+    printf 'This runs your fan at full speed, then a middle level, then off, and puts your profile back\n'
+    printf '(about 2 minutes; the fan gets loud). Continue? [Y/n] '
+    read -r ans
+    case "$ans" in n|N|no|NO|No) skip_reason="declined" ;; esac
+  else
+    skip_reason="not interactive (add --yes to run the fan test)"
+  fi
+fi
+
+# ---- 3. the fan test
+fan_ran=0; pass=0; failc=0; hot=0; prof_n=0; lvl_n=0
+idle=""; idle2=""; full=""; full2=""; mid=""; mid2=""; off=""; off2=""; took=0
+check() { # <name> <got> <want>: returns 0 on a pass
+  if [ "$2" = "$3" ]; then pass=$((pass+1)); note "  PASS  $1"; return 0; fi
+  failc=$((failc+1)); note "  FAIL  $1 (got '$2', want '$3')"; return 1
+}
+settled=""
+settle() { # <timeout s>: wait until the RPM stops changing (two reads 3 s apart within 150 RPM); result in $settled
+  local start=$SECONDS prev="" r=""
+  settled=""
+  while [ $((SECONDS - start)) -lt "$1" ]; do
+    sleep 3
+    if [ "$(temp)" -ge 80 ] 2>/dev/null; then "$CLI" performance >/dev/null 2>&1; hot=1; settled=$r; return 1; fi
+    r=$(rpm)
+    if [[ $r =~ ^[0-9]+$ ]]; then
+      if [[ $prev =~ ^[0-9]+$ ]] && [ $((r > prev ? r - prev : prev - r)) -le 150 ]; then settled=$r; return 0; fi
+      prev=$r
+    fi
+  done
+  settled=$r; return 1
+}
+
+if [ -z "$skip_reason" ]; then
+  fan_ran=1
+  orig=$("$CLI" current)
+  restore() { case "$orig" in manual) "$CLI" manual "$(cat "$HOME/.config/omarchy/fan/manual-level" 2>/dev/null || echo 3)" ;; *) "$CLI" "$orig" ;; esac >/dev/null 2>&1; }
+  trap restore EXIT
+  trap 'echo; echo "Interrupted: your fan profile is being put back ($orig)."; exit 130' INT TERM
+  t0=$SECONDS
+  note "fan test (profile before: $orig, CPU ${start_temp}C)"
+  echo "Running the fan test..."
+  idle=$(rpm); idle2=$(hwmon_fan fan2_input)
+
+  for p in quiet balanced performance; do
+    "$CLI" "$p" >/dev/null 2>&1; sleep 1
+    check "$p curve is the active thinkfan config" "$(head -1 /etc/thinkfan.yaml 2>/dev/null | awk '{print $4}')" "$p" && prof_n=$((prof_n+1))
+  done
+
+  "$CLI" manual 8 >/dev/null 2>&1; sleep 2
+  check "manual 8 reaches the kernel (reported as 'disengaged')" "$(klevel)" disengaged && lvl_n=$((lvl_n+1))
+  settle 45; full=$settled; full2=$(hwmon_fan fan2_input)
+  note "  INFO  full speed settled at ${full:-no reading} RPM"
+
+  "$CLI" manual 4 >/dev/null 2>&1; sleep 2
+  check "manual 4 reaches the kernel" "$(klevel)" 4 && lvl_n=$((lvl_n+1))
+  settle 50; mid=$settled; mid2=$(hwmon_fan fan2_input)
+  note "  INFO  level 4 settled at ${mid:-no reading} RPM"
+
+  "$CLI" manual 0 >/dev/null 2>&1; sleep 2
+  check "manual 0 reaches the kernel" "$(klevel)" 0 && lvl_n=$((lvl_n+1))
+  settle 70; off=$settled; off2=$(hwmon_fan fan2_input)
+  note "  INFO  off settled at ${off:-no reading} RPM"
+
+  # relative, not absolute: fan speeds differ a lot between models
+  check "fan speed order: full speed > level 4 > off" "$([ "${full:-0}" -gt "${mid:-0}" ] && [ "${mid:-0}" -gt "${off:-0}" ] && echo yes || echo no)" yes
+  check "the CPU stayed under 80C" "$([ "$hot" = 0 ] && echo yes || echo no)" yes
+
+  restore; trap - EXIT
+  took=$((SECONDS - t0))
+fi
+
+# ---- 4. the summary (this is what gets pasted) and the detail file
+row() { printf '%-8s %s\n' "$1" "$2"; }
+short() { local s=$1; [ "${#s}" -gt 70 ] && s="${s:0:67}..."; printf '%s' "$s"; }
+
+if [ "$fan_ran" = 1 ]; then
+  if [ "$failc" = 0 ] && [ "$n_fail" = 0 ]; then result="PASS"; else result="FAIL"; fi
+else
+  if [ "$n_fail" = 0 ]; then result="DOCTOR OK, fan test skipped ($skip_reason)"; else result="FAIL (doctor)"; fi
+fi
+
+echo
+echo "omarchyfan report"
+row "plugin" "${ver:-unknown}${sha:+ ($sha)}   kernel $(uname -r)   BIOS $(field bios_version)"
+row "model" "$machine"
+d="$n_ok ok, $n_warn warn, $n_fail FAIL"
+[ -n "$first_bad" ] && d="$d   - first: $(short "$first_bad")"
+row "doctor" "$d"
+if [ "$fan_ran" = 1 ]; then
+  row "fans" "fan1 idle ${idle:-?} -> full ${full:-?} -> level 4 ${mid:-?} -> off ${off:-?} RPM"
+  if [ -n "$idle2$full2$mid2$off2" ]; then
+    if [ "$idle" = "$idle2" ] && [ "$full" = "$full2" ] && [ "$mid" = "$mid2" ] && [ "$off" = "$off2" ]; then rel="reads exactly like fan1 at every step"
+    else rel="reads differently from fan1, probably a real second fan"; fi
+    row "fan2" "idle ${idle2:-?} -> full ${full2:-?} -> level 4 ${mid2:-?} -> off ${off2:-?} RPM   ($rel)"
+  fi
+  row "levels" "profiles applied $prof_n/3, kernel levels 8/4/0 applied $lvl_n/3"
+  row "tests" "$pass passed, $failc failed   (fan test took ${took}s)"
+else
+  now=$(rpm)
+  row "fans" "now ${now:-no reading} RPM   (fan test skipped)"
+  row "tests" "fan test skipped: $skip_reason"
+fi
+row "result" "$result"
+
+{
+  echo "omarchyfan report $(date -u +%Y-%m-%dT%H:%M:%SZ)   plugin ${ver:-unknown}${sha:+ ($sha)}"
+  echo
+  echo "== doctor"; echo "$doc"
+  echo
+  echo "== /proc/acpi/ibm/fan"; cat "$R/proc/acpi/ibm/fan" 2>/dev/null
+  echo "== /proc/acpi/ibm/thermal"; cat "$R/proc/acpi/ibm/thermal" 2>/dev/null
+  echo "== thinkpad_acpi fan_control"; cat "$R/sys/module/thinkpad_acpi/parameters/fan_control" 2>/dev/null
+  echo "== DMI"; echo "sys_vendor: $(field sys_vendor)"; echo "product_name: $(field product_name)"
+  echo "product_version: $(field product_version)"; echo "bios_version: $(field bios_version)"
+  echo "== thinkpad hwmon fans"; echo "fan1_input: $(hwmon_fan fan1_input)"; echo "fan2_input: $(hwmon_fan fan2_input)"
+  echo "== kernel log: secondary fan"; kernel_log | grep -i 'secondary fan'
+  echo
+  echo "== fan test"; if [ "$fan_ran" = 1 ]; then printf '%s' "$log"; else echo "skipped: $skip_reason"; fi
+} > "$out" 2>/dev/null
+echo
+if [ -s "$out" ]; then echo "Paste the lines above into the issue. The full detail is in $out (attach it if asked)."
+else echo "Paste the lines above into the issue. (Could not write the detail file to $out.)"; fi
+
+[ "${result%% *}" = FAIL ] && exit 1
+exit 0

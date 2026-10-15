@@ -12,7 +12,7 @@ omarchyfan \- control a ThinkPad's fan from the Omarchy bar or a terminal
 .br
 .B omarchyfan follow on | off
 .br
-.B omarchyfan status | current | stats | doctor | help
+.B omarchyfan status | current | stats | report | doctor | help
 .SH DESCRIPTION
 .B omarchyfan
 is the command behind the ThinkPad Fan Control plugin for the Omarchy bar. The fan panel in the bar calls exactly
@@ -81,6 +81,34 @@ or
 Print the same facts as tab-separated
 .I key value
 lines (follow, manual, setup, profile, temp, rpm, level, service). The panel reads this; it is handy for scripts.
+.TP
+.B report " [\-\-read\-only] [\-\-yes]"
+The one command for testing a new model. It runs the
+.B doctor
+checks, then asks before it runs the fan at full speed, at level 4 and off, one after the other (about two minutes; the
+fan gets loud), and checks that each curve and each level reaches the kernel and that the speed really follows:
+full speed faster than level 4, level 4 faster than off. Speeds are compared with each other, not with fixed numbers,
+because fans differ between models. Your profile is put back at the end, also if you interrupt it. It does not start
+above 65C, and puts the fan on performance if the CPU reaches 80C.
+.IP
+It prints a short summary (plugin version, kernel, BIOS, model, the doctor counts, the fan speeds, the test counts and
+a
+.B result
+line) to paste into a Hardware report issue, and writes the full detail to
+.IR ~/omarchyfan\-report.txt .
+It reads only the model and BIOS fields, the fan and temperature files, the fan inputs and the kernel's secondary-fan
+lines: no serial number, hostname or user name.
+.IP
+.B \-\-read\-only
+skips the fan test.
+.B \-\-yes
+skips the question (without it, a run that is not at a terminal skips the fan test). The result is
+.B PASS
+when the fan test ran and passed,
+.B FAIL
+when doctor or the fan test failed (exit status 1), and
+.B DOCTOR OK
+when only the doctor checks ran.
 .TP
 .B doctor
 Print a read-only report on whether this machine is supported: the model and BIOS, whether the
