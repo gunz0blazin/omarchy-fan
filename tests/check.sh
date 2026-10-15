@@ -49,6 +49,21 @@ for y in profiles/*.yaml; do
     && ok "profile $y reaches full speed by ${top}C (limit 86C)" || bad "profile $y must have a full-speed row, entered by 86C at the latest (found: ${top:-none})"
 done
 
+# the panel offers "Update fan control" only when packaging/PKGBUILD's version goes up, so nothing the helper package installs
+# (helper/, profiles/, the PKGBUILD's own package() lines) may change after the last pkgver/pkgrel bump without another one
+pkgv() { awk -F= '/^pkgver=/{v=$2} /^pkgrel=/{r=$2} END{print v "-" r}'; }
+last=$(git log -1 --format=%H -G'^pkg(ver|rel)=' -- packaging/PKGBUILD 2>/dev/null)
+if [ -z "$last" ]; then
+  skip "helper package version bump (no git history)"
+elif [ "$(git show "$last:packaging/PKGBUILD" | pkgv)" != "$(pkgv < packaging/PKGBUILD)" ]; then
+  ok "helper package: version raised to $(pkgv < packaging/PKGBUILD) (not committed yet)"
+elif git diff --quiet "$last" -- helper profiles \
+  && [ -z "$(git diff -U0 "$last" -- packaging/PKGBUILD | grep -E '^[+-][^+-]' | grep -vE '^[+-]pkg(ver|rel)=')" ]; then
+  ok "helper package: nothing it installs changed since version $(pkgv < packaging/PKGBUILD)"
+else
+  bad "helper/, profiles/ or the PKGBUILD changed since helper version $(pkgv < packaging/PKGBUILD): raise pkgrel, or users never see 'Update fan control'"
+fi
+
 qml=$(command -v qmllint || ls /usr/lib/qt6/bin/qmllint 2>/dev/null | head -1)
 if [ -n "$qml" ]; then
   "$qml" Panel.qml 2>&1 | grep -qiE 'syntax|expected' && bad "qmllint Panel.qml: no syntax errors" || ok "qmllint Panel.qml: no syntax errors"

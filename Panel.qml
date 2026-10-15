@@ -13,7 +13,7 @@ Panel {
   readonly property string pluginDir: String(Qt.resolvedUrl(".")).replace("file://", "").replace(/\/$/, "")
   readonly property string fanBin: pluginDir + "/bin/omarchyfan"
   readonly property string helper: "/usr/lib/omarchy-fan/helper"
-  // ready | unsupported (not a ThinkPad) | no-thinkfan | no-helper | needs-enable
+  // ready | unsupported (not a ThinkPad) | no-thinkfan | no-helper | needs-enable | update-available (the installed helper is older than this plugin's)
   readonly property string setupState: info.setup || "ready"
   readonly property bool supported: setupState !== "unsupported"
   property var info: ({})
@@ -265,7 +265,9 @@ Panel {
               ? "thinkfan isn't installed, so the fan stays on firmware control."
               : (root.setupState === "needs-enable"
                  ? "The fan helper is installed. Enable it once to take over the fan."
-                 : "Fan control needs a small root helper (a package built from this plugin).")
+                 : (root.setupState === "update-available"
+                    ? "The fan helper is out of date. Update it to get the latest safety fixes and curves."
+                    : "Fan control needs a small root helper (a package built from this plugin)."))
             color: root.bar.foreground
             opacity: 0.75
             font.family: root.bar.fontFamily
@@ -276,7 +278,7 @@ Panel {
 
           Button {
             width: parent.width
-            text: root.setupState === "needs-enable" ? "Enable fan control" : "Install fan control"
+            text: root.setupState === "needs-enable" ? "Enable fan control" : (root.setupState === "update-available" ? "Update fan control" : "Install fan control")
             iconText: "󰈐"
             fontSize: Style.font.bodySmall
             foreground: root.bar.foreground

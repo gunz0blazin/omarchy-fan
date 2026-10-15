@@ -6,9 +6,9 @@
 #   local        fake home directory, no system change test-cli-link.sh
 #   shell        briefly uses/disables the plugin in your running bar   test-panel.sh, test-follow.sh
 #   hardware     changes your fan (and power profile), then restores it test-helper.sh, test-effect.sh
-#   destructive  needs sudo, stops thinkfan / reloads the driver        test-safety.sh, test-uninstall.sh, test-failsafe.sh
+#   destructive  needs sudo, stops thinkfan / reloads the driver        test-safety.sh, test-uninstall.sh
 #
-# full-test.sh runs them (levels: quick, base = every commit, release = before main); every script also runs by itself.
+# full-test.sh runs them (levels: commit = every commit, quick = read-only extras, base + release = before main); every script also runs by itself.
 #
 # A suite that cannot run on this machine exits 77 ("skipped"); single skipped checks are counted and printed, so a
 # skip can never be mistaken for a pass.
@@ -38,7 +38,6 @@ suite_skip() { echo "SKIPPED: $1"; exit 77; }
 finish() { echo "$pass passed, $failn failed, $skipn skipped$([ "$gapn" -gt 0 ] && echo ", $gapn known gap(s)")"; [ "$failn" = 0 ]; }
 
 is_thinkpad() { [ -d /sys/devices/platform/thinkpad_acpi ]; }
-on_ac()       { [ "$(cat /sys/class/power_supply/AC/online 2>/dev/null)" = 1 ]; }
 fan_rpm()     { awk '$1=="speed:"{ if ($2<=20000) print $2 }' /proc/acpi/ibm/fan 2>/dev/null; }   # 65535 = no reading
 fan_level()   { awk '$1=="level:"{print $2}' /proc/acpi/ibm/fan 2>/dev/null; }
 cpu_temp()    { awk '/^temperatures:/{print $2}' /proc/acpi/ibm/thermal 2>/dev/null; }

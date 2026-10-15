@@ -1,7 +1,8 @@
 #!/bin/bash
-# Tier: static (it runs the command's read-only subcommands: status, current, stats, help). Checks that the README
-# and the man page tell the truth about the code: documented subcommands exist, documented paths are real or shipped,
-# the numbers in the profile tables match the curve files, every test script is listed, links resolve.
+# Tier: static (it runs the command's read-only subcommands: status, current, stats, help). Checks that the README,
+# DEVELOPING.md (the developer page) and the man page tell the truth about the code: documented subcommands exist,
+# documented paths are real or shipped, the numbers in the profile tables match the curve files, every test script is
+# listed on DEVELOPING.md, links resolve, and the README links to DEVELOPING.md.
 # Works on any branch of this repo (it uses whichever command name the checkout has).
 . "$(dirname "$(readlink -f "$0")")/lib.sh"
 [ -n "$CLI" ] || suite_skip "no command found in bin/"
@@ -22,6 +23,8 @@ cmd = os.path.basename(cli)
 read = lambda p: open(os.path.join(root, p)).read() if os.path.exists(os.path.join(root, p)) else None
 out = lambda kind, msg: print(f"{kind} {msg}")
 readme, cli_src = read("README.md"), open(cli).read()
+developing = read("DEVELOPING.md") or ""   # the developer page: the test suite and contributing
+docs = readme + "\n" + developing          # both sit in the repo root, so their links and paths resolve the same way
 manpage = read(f"man/{cmd}.1")
 pkgbuild, helper, installer = read("packaging/PKGBUILD") or "", read("helper/omarchy-fan-helper") or "", read("install-helper.sh") or ""
 manifest = json.loads(read("manifest.json"))
@@ -31,7 +34,7 @@ labels = set()
 for m in re.finditer(r"^  ([a-z|\-]+)\)", cli_src, re.M):
     labels.update(w for w in m.group(1).split("|") if w)
 documented = set()
-for m in re.finditer(r"\b(?:omarchyfan|omarchy-fan)[ \t]+([a-z|]+)", readme):
+for m in re.finditer(r"\b(?:omarchyfan|omarchy-fan)[ \t]+([a-z|]+)", docs):
     documented.update(w for w in m.group(1).split("|") if w)
 for w in sorted(documented):
     out("PASS" if w in labels else "FAIL", f"README documents '{cmd} {w}' and the command {'has' if w in labels else 'has NO'} such a subcommand")
@@ -59,7 +62,7 @@ else:
 # ---- 4. system paths named in the README are real: shipped by the package/helper or made by the installer
 sources = pkgbuild + helper + installer
 seen = set()
-for tok in re.findall(r"`(/(?:usr|etc)/[^`\s]+)`", readme):
+for tok in re.findall(r"`(/(?:usr|etc)/[^`\s]+)`", docs):
     prefix = re.split(r"[*{]", tok)[0].rstrip(".,;:")
     if prefix in seen:
         continue
@@ -72,21 +75,23 @@ def brace(p):
     if not m:
         return [p]
     return [x for alt in m.group(1).split(",") for x in brace(p[:m.start()] + alt + p[m.end():])]
-repo_tokens = set(re.findall(r"`((?:bin|man|profiles|tests|packaging|helper|docs)/[A-Za-z0-9_./*{},-]+)`", readme))
-repo_tokens |= {f for f in ("install-helper.sh", "LICENSE", "preview.png", "Panel.qml", "manifest.json") if f"`{f}`" in readme}
+repo_tokens = set(re.findall(r"`((?:bin|man|profiles|tests|packaging|helper|docs)/[A-Za-z0-9_./*{},-]+)`", docs))
+repo_tokens |= {f for f in ("install-helper.sh", "LICENSE", "preview.png", "Panel.qml", "manifest.json") if f"`{f}`" in docs}
 for tok in sorted(repo_tokens):
     hits = [h for p in brace(tok) for h in glob.glob(os.path.join(root, p))]
     out("PASS" if hits else "FAIL", f"README names {tok}, which {'exists' if hits else 'does NOT exist'} in the repo")
-links = set(re.findall(r"\]\(([^)#\s]+)(?:#[^)]*)?\)", readme)) | set(re.findall(r"<img[^>]*\ssrc=\"([^\"]+)\"", readme))
+links = set(re.findall(r"\]\(([^)#\s]+)(?:#[^)]*)?\)", docs)) | set(re.findall(r"<img[^>]*\ssrc=\"([^\"]+)\"", docs))
 for link in sorted(links):
     if link.startswith(("http://", "https://", "mailto:")):
         continue
     out("PASS" if os.path.exists(os.path.join(root, link)) else "FAIL", f"README link ({link}) resolves")
 tests_dir = sorted(os.path.basename(p) for p in glob.glob(os.path.join(root, "tests", "*.sh")) if not p.endswith("lib.sh"))
 for name in tests_dir:
-    out("PASS" if name in readme else "FAIL", f"the README lists tests/{name}")
-for name in sorted(set(re.findall(r"tests/([\w.-]+\.sh)", readme))):
-    out("PASS" if os.path.exists(os.path.join(root, "tests", name)) else "FAIL", f"README names tests/{name}, which exists")
+    out("PASS" if name in developing else "FAIL", f"DEVELOPING.md lists tests/{name}")
+for name in sorted(set(re.findall(r"tests/([\w.-]+\.sh)", docs))):
+    out("PASS" if os.path.exists(os.path.join(root, "tests", name)) else "FAIL", f"the docs name tests/{name}, which exists")
+out("PASS" if developing else "FAIL", "DEVELOPING.md (the developer page) is in the repo root")
+out("PASS" if "](DEVELOPING.md)" in readme.split("\n## ", 1)[0] else "FAIL", "the README links to DEVELOPING.md before its first section")
 
 # ---- 6. the numbers in the profile tables match the curve files
 def curve(name):
