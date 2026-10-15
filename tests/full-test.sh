@@ -25,7 +25,7 @@ BUDGET=240     # seconds the base suite must stay under
 #          base = the device suites, before a merge to main; release = base + uninstall + marketplace scanner
 REGISTRY='check|check.sh||commit|5|240|-|manifest, shell syntax, executable bits, man-page lint, curve files, profile safety rule, QML lint
 marketplace|check-marketplace.sh||commit|5|240|-|the marketplace publishing, development and security-baseline rules
-readme|test-readme.sh||commit|5|240|-|README and man page match the code, the paths, the curve numbers, the test list
+readme|test-readme.sh||commit|5|240|-|README, DEVELOPING.md and the man page match the code, the paths, the curve numbers, the test list
 package|test-package.sh||quick|5|300|makepkg|the root-helper package: exact files, owners, modes, polkit policy, no sudoers rule
 compat|test-compat.sh||commit|5|240|-|doctor and stats over the T480s capture and 13 fake machines (other ThinkPads, broken and non-ThinkPad)
 cli-link|test-cli-link.sh||quick|35|240|-|the command and man-page links the plugin makes, in a fake home

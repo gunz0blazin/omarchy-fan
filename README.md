@@ -3,6 +3,9 @@
 Control your ThinkPad's fan from the Omarchy bar. One icon opens a panel styled like the built-in wifi and bluetooth
 panels, and it follows your theme.
 
+> **Developers and testers: see [DEVELOPING.md](DEVELOPING.md)** for the test suite (the quick check for every commit and
+> the full check before a merge), how to run it, and how to contribute. Everything on this page is for using the plugin.
+
 ## Install
 
     omarchy plugin add https://github.com/gunz0blazin/omarchy-fan.git --enable
@@ -68,8 +71,7 @@ above need it re-installed once. After the [update](#updating) and the shell res
 it and enter your sudo password. (Or run `install-helper.sh` from the plugin folder yourself.) It re-applies your fan profile with
 the new curves at the end. Everything else works straight after the update.
 
-*For developers:* one command, `bash tests/full-test.sh`, runs the fast commit check in about ten seconds (`--base` is the full pre-merge stack, about three and a half minutes); see
-[For developers and testers](#for-developers-and-testers).
+*For developers:* the developer docs and the test suite moved to their own page, [DEVELOPING.md](DEVELOPING.md).
 
 ## The profiles
 
@@ -247,18 +249,6 @@ Worth knowing:
 - With thinkfan running, the ThinkPad's firmware still has its own thermal protection, and every profile reaches full
   speed well below the CPU's critical temperature.
 
-## Credits and license
-
-MIT, see [LICENSE](LICENSE). The panel is built from the stock Omarchy UI components so it matches the built-in panels.
-Fan curves are driven by [thinkfan](https://github.com/vmatare/thinkfan).
-
----
-
-# For developers and testers
-
-> **You don't need anything below to use the plugin.** This part is for people who want to report a new ThinkPad model,
-> run the test suite, or work on the code.
-
 ## Report a new ThinkPad model
 
 This is how a model gets added to the table above.
@@ -275,72 +265,9 @@ A model is marked "Tested" once a report shows `result  PASS` (`doctor` with no 
 files are added to `tests/fixtures/`. A report that only ran the `doctor` checks says `DOCTOR OK, fan test skipped`; that is
 useful, but it is not enough to mark a model "Tested".
 
-## Development and tests
+Working on the code or running the tests? See [DEVELOPING.md](DEVELOPING.md).
 
-**Run the whole stack with one command**, `tests/full-test.sh`. It runs the right suites in order, prints a pass/fail table
-and exits non-zero if anything failed. The read-only suites run in parallel with the device suites:
+## Credits and license
 
-    bash tests/full-test.sh              # the commit check, every commit (about 10 seconds, read-only, no fan, no sudo)
-    bash tests/full-test.sh --quick      # commit + the package and CLI-link suites (about 35 seconds, still read-only)
-    bash tests/full-test.sh --base       # quick + the device suites: before merging to main (about 3.5 minutes, budget 4)
-    bash tests/full-test.sh --release    # base + a clean uninstall/reinstall + the marketplace scanner: before merging to main (about 8 minutes)
-    bash tests/full-test.sh --list       # every suite, its level, its measured time, what it needs, what it proves
-    bash tests/full-test.sh --sync       # first put the installed plugin and helper on origin/dev, so the device runs what was pushed
-
-| Level | Suites | Time | Why |
-|---|---|---|---|
-| **commit** (every commit) | `check`, `marketplace`, `readme`, `compat` | ~10 s | read-only: the code parses and runs against fake machines, the manifest and marketplace rules hold, the README still matches the code |
-| **quick** | commit + `package`, `cli-link` | ~35 s | read-only: the root-helper package and the command links are consistent |
-| **base** (before main) | quick + `panel`, `follow`, `helper`, `effect`, `safety-net`, `safety-reload`, `safety-handoff` | ~3.5 min | the plugin loads and works on the device, the fan obeys, every pinned level has its safety row, the driver reload is harmless, the firmware takes over when the plugin goes |
-| **release** (before main) | base + `uninstall`, `scan` | ~8 min | a clean uninstall that leaves nothing behind, and the marketplace's own security scanner on the pushed commit |
-
-Nothing in the stack loads or heats the CPU.
-
-Every script below still runs on its own (`bash tests/<name>.sh`); `full-test.sh` only organizes them.
-
-All the tests live in `tests/` and are run by hand. They are grouped by how much they touch, so you can pick:
-
-| Tier | What it may touch | Scripts |
-|---|---|---|
-| **static** | reads files only | `tests/check.sh`, `tests/check-marketplace.sh`, `tests/test-readme.sh`, `tests/test-package.sh`, `tests/test-compat.sh` |
-| **local** | a throwaway home directory | `tests/test-cli-link.sh` |
-| **shell** | briefly uses, and for one test disables and re-enables, the plugin in your running bar | `tests/test-panel.sh`, `tests/test-follow.sh` |
-| **hardware** | changes your fan profile (and, for the follower test, your power profile), then restores them | `tests/test-helper.sh`, `tests/test-effect.sh` |
-| **destructive** | needs sudo; stops thinkfan or reloads the driver for a few seconds, or removes the plugin and puts it back | `tests/test-safety.sh`, `tests/test-uninstall.sh` |
-
-What each one checks (`full-test.sh` is the runner above, not a test):
-
-- `check.sh`: manifest validation, shell syntax and executable bits, man-page lint, the curve files' shape, QML lint.
-- `check-marketplace.sh`: this checkout against the marketplace publishing and development rules (manifest fields, id rules,
-  README sections and disclosures, symlinks, the security-baseline patterns). With `MARKETPLACE_SCAN=1` (the `scan` suite) it also runs
-  the marketplace's own scanner on the pushed commit: no findings, no capability beyond the four already accepted.
-- `test-readme.sh`: the README and man page against the code: documented subcommands exist, documented paths are real,
-  the numbers in the profile tables match the curve files, every test script is listed, links resolve.
-- `test-package.sh`: builds the root-helper package in a scratch folder and checks exactly what it installs (files,
-  owners, modes, the polkit policy, no sudoers rule). Nothing is installed.
-- `test-compat.sh`: `omarchyfan doctor` and `stats` against fake `/proc` and `/sys` trees in `tests/fixtures/` (the tested
-  T480s, plus a second fan, `fan_control` off, a 65535 speed glitch, missing files and a non-ThinkPad). Runs on any
-  machine; to add a model, see `tests/fixtures/README.md`.
-- `test-cli-link.sh`: the command and man-page links the plugin makes, in a fake home. Includes the legacy `omarchy-fan` checks.
-- `test-panel.sh`: the panel opens and closes (also with Escape and toggle), the shell log shows no errors from the
-  plugin, and the plugin survives being disabled and re-enabled with its icon back in the same place. `SKIP_CYCLE=1`
-  skips the disable/enable part.
-- `test-follow.sh`: the power-profile follower. Don't plug or unplug the charger while it runs.
-- `test-helper.sh`: each curve applies, manual levels reach the kernel, nine rapid restarts don't break thinkfan, and
-  the root helper rejects bad input without changing anything.
-- `test-effect.sh`: the fan really speeds up, slows down and stops (RPM, not just the requested level). Run it on an
-  idle laptop; the fan gets loud for a few seconds.
-- `test-safety.sh`: **the safety test**, three fast checks (about a minute, nothing is loaded or heated) that the plugin leaves a user's
-  laptop in a safe, working state; run all or pick with `PARTS="net handoff" bash tests/test-safety.sh`:
-  `net` (every pinned manual level 0-7 gets a full-speed safety row at 80°C and up; level 8 is a single full-speed row),
-  `reload` (reloading the `thinkpad_acpi` driver, which the boot hook does, leaves the LEDs, battery limits, hotkeys, input
-  devices and radios exactly as they were, and the fan still answers), and
-  `handoff` (when thinkfan stops or is disabled, which is what removing the plugin does, the firmware takes the fan back within 10 s).
-- `test-uninstall.sh`: runs the README's own Uninstall commands, then checks nothing of the plugin is left on the system
-  (packages, files, links, saved state, services, the bar entry, anything else with its name), and installs the plugin
-  again afterwards. Needs sudo, network and an idle laptop; takes a few minutes.
-
-Every script prints `passed`, `failed` and `skipped` counts, so a skipped check can't pass for a real one. A script that
-cannot run on this machine (not a ThinkPad, no sudo, no plugin in the bar) exits with status 77 and says why. The
-scripts also work on older versions of the repo (they find the command under either name), which is how a release can
-be compared with the one before it. `tests/lib.sh` holds the shared helpers.
+MIT, see [LICENSE](LICENSE). The panel is built from the stock Omarchy UI components so it matches the built-in panels.
+Fan curves are driven by [thinkfan](https://github.com/vmatare/thinkfan).
