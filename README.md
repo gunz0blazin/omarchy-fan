@@ -10,11 +10,7 @@ panels, and it follows your theme.
 
     omarchy plugin add https://github.com/gunz0blazin/omarchy-fan.git --enable
 
-To uninstall it again, with everything it installed (thinkfan included; what each part does is under [Uninstall](#uninstall)):
-
-    omarchy plugin remove io.github.gunz0blazin.thinkpad-fan; rm -rf ~/.local/bin/omarchyfan ~/.local/bin/omarchy-fan ~/.local/share/man/man1/omarchyfan.1 ~/.local/share/man/man1/omarchy-fan.1 ~/.config/omarchy/fan ~/.cache/yay/thinkfan; sudo systemctl disable --now thinkfan; sudo pacman -Rns $(pacman -Qq omarchy-fan-helper thinkfan thinkfan-debug 2>/dev/null); sudo rm -f /etc/thinkfan.yaml
-
-After `omarchy plugin add`, Omarchy shows its "plugins run unsandboxed" warning and asks where in the bar to put the icon (the right side is
+Omarchy shows its "plugins run unsandboxed" warning and asks where in the bar to put the icon (the right side is
 suggested). Then:
 
 1. Click the new fan icon in the bar.
@@ -34,6 +30,30 @@ Prefer to do step 2 yourself? Run `install-helper.sh` from the plugin folder
 - **A manual slider**: off, levels 1 to 7, or full speed
 - **Follow power profile**: switch the power profile and the fan profile follows (power-saver is Quiet, balanced is
   Balanced, performance is Performance). Turn it off and your fan setting stays put until you change it
+
+## Uninstall
+
+This removes everything the plugin put on your system, and nothing else. Paste it into a terminal as one line (it asks you
+to confirm the plugin removal and for your sudo password):
+
+    omarchy plugin remove io.github.gunz0blazin.thinkpad-fan; rm -rf ~/.local/bin/omarchyfan ~/.local/bin/omarchy-fan ~/.local/share/man/man1/omarchyfan.1 ~/.local/share/man/man1/omarchy-fan.1 ~/.config/omarchy/fan ~/.cache/yay/thinkfan; sudo systemctl disable --now thinkfan; sudo pacman -Rns $(pacman -Qq omarchy-fan-helper thinkfan thinkfan-debug 2>/dev/null); sudo rm -f /etc/thinkfan.yaml
+
+Step by step, that is:
+
+- `omarchy plugin remove ...`: takes the plugin out of the bar and deletes its folder.
+- `rm -rf ...`: the `omarchyfan` command and man-page links the plugin made (and the legacy `omarchy-fan` ones), your
+  saved choices in `~/.config/omarchy/fan` (profile, manual level, follow switch), and the build cache from installing thinkfan.
+- `sudo systemctl disable --now thinkfan`: gives the fan back to the firmware.
+- `sudo pacman -Rns ...`: removes the helper package (the helper, its polkit policy, curves and drop-ins), `thinkfan` and
+  the `thinkfan-debug` package the AUR build adds, plus any dependency nothing else needs. Whatever is already gone is
+  skipped, so the line also finishes a half-done uninstall. **If you used thinkfan before this plugin and want to keep it,
+  take `thinkfan thinkfan-debug` out of that part.**
+- `sudo rm -f /etc/thinkfan.yaml`: the curve the helper wrote.
+- If you had your own `/etc/thinkfan.yaml` before, the helper saved it as `/etc/thinkfan.yaml.omarchy-fan.bak`: put
+  it back with `sudo mv /etc/thinkfan.yaml.omarchy-fan.bak /etc/thinkfan.yaml` (that file is only there in that case).
+
+Removing the plugin alone does **not** stop thinkfan: the fan keeps running on the last curve you chose until you
+disable the service.
 
 ## What's new in 1.2.2
 
@@ -147,30 +167,6 @@ The fan helper is a separate system package, so an update can come with a newer 
 **Update fan control**: press it, and enter your sudo password in the terminal that opens (it is the same installer as
 the first time, and it re-applies your fan profile with the new curves at the end). Until you do, the fan keeps working
 as before. `omarchyfan doctor` also tells you when the helper is older than the plugin.
-
-## Uninstall
-
-This removes everything the plugin put on your system, and nothing else. Paste it into a terminal as one line (it asks you
-to confirm the plugin removal and for your sudo password):
-
-    omarchy plugin remove io.github.gunz0blazin.thinkpad-fan; rm -rf ~/.local/bin/omarchyfan ~/.local/bin/omarchy-fan ~/.local/share/man/man1/omarchyfan.1 ~/.local/share/man/man1/omarchy-fan.1 ~/.config/omarchy/fan ~/.cache/yay/thinkfan; sudo systemctl disable --now thinkfan; sudo pacman -Rns $(pacman -Qq omarchy-fan-helper thinkfan thinkfan-debug 2>/dev/null); sudo rm -f /etc/thinkfan.yaml
-
-Step by step, that is:
-
-- `omarchy plugin remove ...`: takes the plugin out of the bar and deletes its folder.
-- `rm -rf ...`: the `omarchyfan` command and man-page links the plugin made (and the legacy `omarchy-fan` ones), your
-  saved choices in `~/.config/omarchy/fan` (profile, manual level, follow switch), and the build cache from installing thinkfan.
-- `sudo systemctl disable --now thinkfan`: gives the fan back to the firmware.
-- `sudo pacman -Rns ...`: removes the helper package (the helper, its polkit policy, curves and drop-ins), `thinkfan` and
-  the `thinkfan-debug` package the AUR build adds, plus any dependency nothing else needs. Whatever is already gone is
-  skipped, so the line also finishes a half-done uninstall. **If you used thinkfan before this plugin and want to keep it,
-  take `thinkfan thinkfan-debug` out of that part.**
-- `sudo rm -f /etc/thinkfan.yaml`: the curve the helper wrote.
-- If you had your own `/etc/thinkfan.yaml` before, the helper saved it as `/etc/thinkfan.yaml.omarchy-fan.bak`: put
-  it back with `sudo mv /etc/thinkfan.yaml.omarchy-fan.bak /etc/thinkfan.yaml` (that file is only there in that case).
-
-Removing the plugin alone does **not** stop thinkfan: the fan keeps running on the last curve you chose until you
-disable the service.
 
 ## Configuration
 
