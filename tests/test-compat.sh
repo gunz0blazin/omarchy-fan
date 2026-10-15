@@ -30,7 +30,14 @@ t "AMD-style: temp 52" "$(stat_ t14-amd temp)" 52
 t "AMD-style: rpm 2400" "$(stat_ t14-amd rpm)" 2400
 d=$(doc p1-dual-fan)
 t "dual fan: still supported (exit 0)" "$(rc p1-dual-fan)" 0
-t "dual fan: warns that only the first fan is driven" "$(has "$d" 'warn +this machine has a second fan')" yes
+t "dual fan: both fans follow the level when the kernel controls fan2" "$(has "$d" 'ok +second fan \(fan2\): the kernel sets each fan level on both fans')" yes
+t "dual fan: no mirror note when fan2 reads 0" "$(has "$d" 'probably one fan reported twice')" no
+d=$(doc dual-fan-mirror)
+t "mirrored fan2: still supported (exit 0)" "$(rc dual-fan-mirror)" 0
+t "mirrored fan2: says it can't tell from the kernel log" "$(has "$d" "warn +second fan \(fan2\) is reported; the kernel log doesn't say")" yes
+t "mirrored fan2: notes one fan reported twice" "$(has "$d" 'fan2 reads exactly like fan1 \(3268 RPM\)')" yes
+d=$(doc dual-fan-no-ctl)
+t "fan2 without control: warns only the first follows" "$(has "$d" "warn +second fan \(fan2\) is reported, but the kernel can't set its level")" yes
 d=$(doc fan-control-off)
 t "fan_control off: supported, with a warning (exit 0)" "$(rc fan-control-off)" 0
 t "fan_control off: warns" "$(has "$d" 'warn +fan_control is off')" yes
