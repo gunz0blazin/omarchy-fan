@@ -64,7 +64,7 @@ above need it re-installed once. After the [update](#updating) and the shell res
 it and enter your sudo password. (Or run `install-helper.sh` from the plugin folder yourself.) It re-applies your fan profile with
 the new curves at the end. Everything else works straight after the update.
 
-*For developers:* one command, `bash tests/full-test.sh`, runs the whole test stack in about three minutes; see
+*For developers:* one command, `bash tests/full-test.sh`, runs the fast commit check in about ten seconds (`--base` is the full pre-merge stack, about three and a half minutes); see
 [For developers and testers](#for-developers-and-testers).
 
 ## The profiles
@@ -274,16 +274,20 @@ useful, but it is not enough to mark a model "Tested".
 **Run the whole stack with one command**, `tests/full-test.sh`. It runs the right suites in order, prints a pass/fail table
 and exits non-zero if anything failed. The read-only suites run in parallel with the device suites:
 
-    bash tests/full-test.sh              # the base suite: green before every commit/push (about 3 minutes, budget 4)
-    bash tests/full-test.sh --quick      # only the read-only suites (about 35 seconds, no fan, no sudo)
+    bash tests/full-test.sh              # the commit check, every commit (about 10 seconds, read-only, no fan, no sudo)
+    bash tests/full-test.sh --quick      # commit + the package and CLI-link suites (about 35 seconds, still read-only)
+    bash tests/full-test.sh --base       # quick + the device suites: before merging to main (about 3.5 minutes, budget 4)
     bash tests/full-test.sh --release    # base + a clean uninstall/reinstall + the marketplace scanner: before merging to main (about 8 minutes)
     bash tests/full-test.sh --list       # every suite, its level, its measured time, what it needs, what it proves
     bash tests/full-test.sh --sync       # first put the installed plugin and helper on origin/dev, so the device runs what was pushed
 
+To run the commit check automatically before every commit: `git config core.hooksPath .githooks` (skip once with `git commit --no-verify`).
+
 | Level | Suites | Time | Why |
 |---|---|---|---|
-| **quick** | `check`, `marketplace`, `readme`, `package`, `compat`, `cli-link` | ~35 s | read-only: the repo, the marketplace rules, the README, the package and the CLI are consistent |
-| **base** (every commit) | quick + `panel`, `follow`, `helper`, `effect`, `safety-net`, `safety-reload`, `safety-handoff` | ~3 min | the plugin loads and works on the device, the fan obeys, every pinned level has its safety row, the driver reload is harmless, the firmware takes over when the plugin goes |
+| **commit** (every commit) | `check`, `marketplace`, `readme`, `compat` | ~10 s | read-only: the code parses and runs against fake machines, the manifest and marketplace rules hold, the README still matches the code |
+| **quick** | commit + `package`, `cli-link` | ~35 s | read-only: the root-helper package and the command links are consistent |
+| **base** (before main) | quick + `panel`, `follow`, `helper`, `effect`, `safety-net`, `safety-reload`, `safety-handoff` | ~3 min | the plugin loads and works on the device, the fan obeys, every pinned level has its safety row, the driver reload is harmless, the firmware takes over when the plugin goes |
 | **release** (before main) | base + `uninstall`, `scan` | ~8 min | a clean uninstall that leaves nothing behind, and the marketplace's own security scanner on the pushed commit |
 
 Nothing in the stack loads or heats the CPU.

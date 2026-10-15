@@ -8,7 +8,7 @@
 #   hardware     changes your fan (and power profile), then restores it test-helper.sh, test-effect.sh
 #   destructive  needs sudo, stops thinkfan / reloads the driver        test-safety.sh, test-uninstall.sh
 #
-# full-test.sh runs them (levels: quick, base = every commit, release = before main); every script also runs by itself.
+# full-test.sh runs them (levels: commit = every commit, quick = read-only extras, base + release = before main); every script also runs by itself.
 #
 # A suite that cannot run on this machine exits 77 ("skipped"); single skipped checks are counted and printed, so a
 # skip can never be mistaken for a pass.

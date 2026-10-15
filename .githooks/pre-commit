@@ -1,0 +1,4 @@
+#!/bin/bash
+# Opt-in: git config core.hooksPath .githooks   (undo: git config --unset core.hooksPath)
+# Runs the ~10 second commit check before every commit; skip once with: git commit --no-verify
+exec bash "$(git rev-parse --show-toplevel)/tests/full-test.sh"
