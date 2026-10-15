@@ -1,49 +1,7 @@
 #!/bin/bash
-# omarchy-fan quiet|balanced|performance|manual <0-8>|follow on|off|status|current|stats
-# The user-facing half of the plugin. Changing the fan goes through the root helper
-# (/usr/lib/omarchy-fan/helper) with pkexec; everything else is plain reads.
-HELPER=/usr/lib/omarchy-fan/helper
-dir=$HOME/.config/omarchy/fan          # per-user state: active profile, manual level, follow flag
-mkdir -p "$dir"
-
-active() { cat "$dir/active" 2>/dev/null || echo balanced; }
-# the controller reports 65535 for a moment while the fan changes speed; that's "no reading", not an RPM
-fan_proc() { awk -v k="$1" '$1==k":"{ if (k=="speed" && $2>20000) exit; print $2 }' /proc/acpi/ibm/fan 2>/dev/null; }
-temp() { awk '/^temperatures:/{print $2}' /proc/acpi/ibm/thermal 2>/dev/null; }
-
-setup_state() {
-  if [ ! -d /sys/devices/platform/thinkpad_acpi ]; then echo unsupported
-  elif ! command -v thinkfan >/dev/null; then echo no-thinkfan
-  elif [ ! -x "$HELPER" ]; then echo no-helper
-  elif [ "$(cat /sys/module/thinkpad_acpi/parameters/fan_control 2>/dev/null)" != Y ] \
-    || ! systemctl is-active --quiet thinkfan; then echo needs-enable
-  else echo ready; fi
-}
-
-case "${1:-status}" in
-  quiet|balanced|performance)
-    pkexec "$HELPER" set "$1" || exit 1
-    echo "$1" > "$dir/active" ;;
-  manual)
-    n=${2:?level 0-8}; [[ $n =~ ^[0-8]$ ]] || { echo "level must be 0-8 (8 = full speed)"; exit 1; }
-    pkexec "$HELPER" set manual "$n" || exit 1
-    echo "$n" > "$dir/manual-level"
-    echo manual > "$dir/active" ;;
-  follow)
-    case "$2" in
-      on) rm -f "$dir/no-follow" ;;
-      off) touch "$dir/no-follow" ;;
-      *) echo "usage: omarchy-fan follow on|off"; exit 1 ;;
-    esac ;;
-  stats)
-    printf 'follow\t%s\n' "$([ -e "$dir/no-follow" ] && echo off || echo on)"
-    printf 'manual\t%s\n' "$(cat "$dir/manual-level" 2>/dev/null || echo 3)"
-    printf 'setup\t%s\n' "$(setup_state)"
-    printf 'profile\t%s\ntemp\t%s\nrpm\t%s\nlevel\t%s\nservice\t%s\n' \
-      "$(active)" "$(temp)" "$(fan_proc speed)" "$(fan_proc level)" "$(systemctl is-active thinkfan)" ;;
-  current) active ;;
-  status)
-    echo "profile: $(active)  temp: $(temp)°C  fan: $(fan_proc speed) RPM  setup: $(setup_state)"
-    systemctl is-active thinkfan ;;
-  *) echo "usage: omarchy-fan quiet|balanced|performance|manual <0-8>|follow on|off|status"; exit 1 ;;
-esac
+# LEGACY NAME. The command is now called omarchyfan (no hyphen). This forwarder keeps old scripts, muscle memory and
+# full paths working for now; it will be removed in a future release. It does exactly what omarchyfan does.
+# The notice goes to stderr and only when stderr is a terminal, so scripts that read this command's output are not
+# disturbed.
+[ -t 2 ] && echo "omarchy-fan is the old name of this command and will be removed in a future release: use omarchyfan" >&2
+exec "$(dirname "$(readlink -f "$0")")/omarchyfan" "$@"

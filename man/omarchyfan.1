@@ -1,0 +1,293 @@
+.TH OMARCHYFAN 1 "2026" "omarchy-fan" "ThinkPad Fan Control"
+.SH NAME
+omarchyfan \- control a ThinkPad's fan from the Omarchy bar or a terminal
+.SH SYNOPSIS
+.B omarchyfan
+.RI [ command ]
+.br
+.B omarchyfan quiet | balanced | performance
+.br
+.B omarchyfan manual
+.I LEVEL
+.br
+.B omarchyfan follow on | off
+.br
+.B omarchyfan status | current | stats | doctor | help
+.SH DESCRIPTION
+.B omarchyfan
+is the command behind the ThinkPad Fan Control plugin for the Omarchy bar. The fan panel in the bar calls exactly
+this command, so anything you can click there you can also do from a terminal.
+.PP
+The fan is driven by
+.BR thinkfan (1).
+.B omarchyfan
+picks which thinkfan curve is active, or pins the fan at a fixed level. Changing the fan needs root, so each change is
+sent to a small root-owned helper with
+.BR pkexec (1).
+A polkit rule lets a user at the local, active session do that without typing a password. Everything else here
+only reads.
+.PP
+The command is a link in
+.I ~/.local/bin
+that the plugin creates the first time the fan widget starts in the bar. With no
+.IR command ,
+.B omarchyfan
+runs
+.BR status .
+.SH COMMANDS
+.TP
+.B quiet
+Apply the Quiet curve. The fan stays off the longest and the CPU runs warmest.
+.TP
+.B balanced
+Apply the Balanced curve. A smooth curve that is the default.
+.TP
+.B performance
+Apply the Performance curve. The fan never switches fully off and spins up early, so the CPU runs cooler.
+.TP
+.BI manual " LEVEL"
+Hold the fan at one fixed level, ignoring temperature.
+.I LEVEL
+is a whole number from 0 to 8: 0 is off, 1 to 7 are the ThinkPad's fan levels, and 8 is full speed. Anything else is
+rejected with a message and exit status 1. The level is remembered, and the active profile becomes
+.BR manual .
+A pinned level from 0 to 7 has a safety net: if the CPU reaches 85 degrees C the fan goes to full speed, and it returns to
+the pinned level once the CPU is below 80 degrees C. This keeps a pinned off or low level from overheating the CPU under
+load.
+.TP
+.B follow on | off
+Choose whether a change of power profile also changes the fan (see
+.BR "FOLLOWING THE POWER PROFILE" ).
+Follow is on by default.
+.TP
+.B status
+Print one line with the active profile, the CPU temperature in degrees C (the ThinkPad's own embedded controller
+sensor), the fan speed in RPM and the setup state (see
+.BR "SETUP STATES" ),
+then the state of the
+.B thinkfan
+service on a second line (for example
+.BR active ).
+.TP
+.B current
+Print only the name of the active profile:
+.BR quiet ,
+.BR balanced ,
+.B performance
+or
+.BR manual .
+.TP
+.B stats
+Print the same facts as tab-separated
+.I key value
+lines (follow, manual, setup, profile, temp, rpm, level, service). The panel reads this; it is handy for scripts.
+.TP
+.B doctor
+Print a read-only report on whether this machine is supported: the model and BIOS, whether the
+.B thinkpad_acpi
+driver is loaded with
+.BR fan_control ,
+the fan levels it offers, whether the fan speed and the first temperature slot (the one the curves follow) can be
+read, whether there is a second fan, and whether
+.B thinkfan
+and the root helper are installed. Each line starts with
+.BR ok ,
+.B warn
+or
+.BR FAIL .
+The exit status is 1 if any line is
+.BR FAIL ,
+otherwise 0. Paste the output into an issue when asking about a new model.
+.TP
+.B help | \-h | \-\-help
+Show this page, or a short summary if the page is not installed.
+.SH PROFILES
+Each profile is a thinkfan curve. Temperatures are the ThinkPad's CPU sensor, in degrees C. Each fan level has a
+temperature at which the fan moves up to the next level and a lower one at which it moves back down, so the fan
+does not flutter around a threshold.
+.TP
+.B quiet
+The fan stays off until about 65, and reaches full speed above about 85.
+.TP
+.B balanced
+The fan stays off until about 56, and reaches full speed above about 85.
+.TP
+.B performance
+The fan never turns off (level 1 at the very least), and reaches full speed above about 74.
+.PP
+The exact rows are in the
+.I .yaml
+files listed under
+.BR FILES ,
+one row per level as
+.RI [ level ", " "lower temperature" ", " "upper temperature" ].
+.SH FOLLOWING THE POWER PROFILE
+While the fan widget is running in the bar, a small background process watches
+.BR power\-profiles\-daemon .
+When the power profile changes and follow is on, the fan profile changes with it:
+.PP
+.RS
+.nf
+power-saver   \->  quiet
+balanced      \->  balanced
+performance   \->  performance
+.fi
+.RE
+.PP
+It does not matter what changed the power profile: you, a script, or Omarchy itself when you plug in or unplug the
+charger. With follow off, your fan setting stays until you change it yourself. A manual change always sticks until the
+next power profile change (with follow on).
+.SH SETUP STATES
+The fourth item of
+.B status
+(and the
+.B setup
+line of
+.BR stats )
+tells you whether the fan can be controlled:
+.TP
+.B ready
+Everything is in place.
+.TP
+.B unsupported
+This is not a ThinkPad (there is no thinkpad_acpi driver). The widget hides itself.
+.TP
+.B no\-thinkfan
+thinkfan is not installed. Press the panel's install button, or run
+.IR install\-helper.sh .
+.TP
+.B no\-helper
+The root helper package is not installed. Same remedy.
+.TP
+.B needs\-enable
+The helper is there, but thinkfan is not running or the driver's
+.B fan_control
+option is off. Press the panel's enable button, or run
+.BR "pkexec /usr/lib/omarchy\-fan/helper enable" .
+.PP
+Until it is ready, the fan stays on the laptop firmware's own control, which is safe.
+.SH EXAMPLES
+.TP
+.B omarchyfan status
+Where things stand right now.
+.TP
+.B omarchyfan balanced
+Back to the default curve.
+.TP
+.B omarchyfan manual 4
+Pin the fan at level 4.
+.TP
+.B omarchyfan manual 8
+Full speed, for example before a heavy job.
+.TP
+.B omarchyfan follow off
+Keep my fan setting even when the power profile changes.
+.SH FILES
+.TP
+.I ~/.local/bin/omarchyfan
+This command: a link to the plugin's
+.IR bin/omarchyfan ,
+made by the plugin. A real file with that name is never replaced. (The old name,
+.BR omarchy\-fan ,
+is kept as a legacy link, see
+.BR "LEGACY NAME" .)
+.TP
+.I ~/.local/share/man/man1/omarchyfan.1
+This page: a link to the plugin's
+.IR man/omarchyfan.1 ,
+made by the plugin in a directory that
+.BR man (1)
+searches by default.
+.TP
+.I ~/.config/omarchy/plugins/io.github.gunz0blazin.thinkpad\-fan/
+The plugin: the panel, this command, and the follower that watches the power profile.
+.TP
+.I ~/.config/omarchy/fan/
+Your choices:
+.I active
+(the active profile),
+.I manual\-level
+(the last manual level) and
+.I no\-follow
+(present when follow is off).
+.TP
+.I /usr/lib/omarchy\-fan/helper
+The only part that runs as root. It accepts a profile name or a level, nothing else, and writes the thinkfan
+configuration from the profiles below.
+.TP
+.I /usr/share/omarchy\-fan/profiles/{quiet,balanced,performance}.yaml
+The three curves.
+.TP
+.I /etc/thinkfan.yaml
+The configuration thinkfan is using right now. If you had your own before, the first copy is kept as
+.IR /etc/thinkfan.yaml.omarchy\-fan.bak .
+.TP
+.I /usr/share/polkit\-1/actions/org.omarchy.fan.policy
+Lets a local, active session run the helper without a password.
+.TP
+.I /usr/lib/systemd/system/thinkfan.service.d/omarchy\-fan.conf
+Lifts systemd's start-rate limit (moving the slider restarts thinkfan) and, just before thinkfan starts, reloads the
+driver with
+.B fan_control=1
+if the early-boot load left it off.
+.SH EXIT STATUS
+.TP
+.B 0
+The command worked.
+.TP
+.B 1
+A bad argument (for example a level above 8), or the change was refused or failed (for example the
+.BR pkexec (1)
+prompt was cancelled).
+.SH UNINSTALL
+.nf
+omarchy plugin remove io.github.gunz0blazin.thinkpad\-fan
+rm \-f ~/.local/bin/omarchyfan ~/.local/share/man/man1/omarchyfan.1
+rm \-f ~/.local/bin/omarchy\-fan ~/.local/share/man/man1/omarchy\-fan.1
+rm \-rf ~/.config/omarchy/fan
+sudo systemctl disable \-\-now thinkfan
+sudo pacman \-Rns omarchy\-fan\-helper $(pacman \-Qq thinkfan thinkfan\-debug 2>/dev/null)
+sudo rm \-f /etc/thinkfan.yaml
+rm \-rf ~/.cache/yay/thinkfan
+.fi
+.PP
+That removes everything the plugin put on the system. The
+.B pacman
+line also removes
+.B thinkfan
+(and the
+.B thinkfan\-debug
+package the AUR build adds); delete the
+.B $(pacman ...)
+part if you used thinkfan before this plugin and want to keep it. If you had your own
+.I /etc/thinkfan.yaml
+before, the helper saved it as
+.IR /etc/thinkfan.yaml.omarchy\-fan.bak :
+move it back after the steps above.
+.PP
+Removing the plugin alone does not stop thinkfan: the fan keeps running on the last curve you chose until you disable
+the service.
+.SH LEGACY NAME
+Before version 1.2 the command was called
+.B omarchy\-fan
+(with a hyphen). That name still works for now, so existing scripts and habits keep working: it is a small forwarder
+that runs
+.B omarchyfan
+with the same arguments and gives the same results. When it is run in a terminal it also prints a notice to standard
+error saying the name is old; scripts that capture its output are not affected. A matching, short manual page is
+installed too (see
+.BR omarchy\-fan (1)).
+.PP
+.B The old name will be removed in a future release.
+Switch scripts to
+.BR omarchyfan .
+.SH SEE ALSO
+.BR thinkfan (1),
+.BR thinkfan.yaml (5),
+.BR powerprofilesctl (1),
+.BR pkexec (1),
+.BR polkit (8)
+.PP
+Project and README: https://github.com/gunz0blazin/omarchy\-fan
+.SH AUTHOR
+Isaiah Garrison (gunz0blazin). MIT license.

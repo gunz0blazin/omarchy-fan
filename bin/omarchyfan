@@ -1,0 +1,108 @@
+#!/bin/bash
+# omarchyfan quiet|balanced|performance|manual <0-8>|follow on|off|status|current|stats|doctor|help   (man omarchyfan)
+# The user-facing half of the plugin. Changing the fan goes through the root helper
+# (/usr/lib/omarchy-fan/helper) with pkexec; everything else is plain reads.
+HELPER=/usr/lib/omarchy-fan/helper
+# OMARCHYFAN_ROOT is for the tests only: it moves the hardware files (/proc/acpi/ibm, /sys/...) under a fixture folder
+R=${OMARCHYFAN_ROOT:-}
+dir=$HOME/.config/omarchy/fan          # per-user state: active profile, manual level, follow flag
+mkdir -p "$dir"
+
+active() { cat "$dir/active" 2>/dev/null || echo balanced; }
+# the controller reports 65535 for a moment while the fan changes speed; that's "no reading", not an RPM
+fan_proc() { awk -v k="$1" '$1==k":"{ if (k=="speed" && $2>20000) exit; print $2 }' "$R/proc/acpi/ibm/fan" 2>/dev/null; }
+temp() { awk '/^temperatures:/{print $2}' "$R/proc/acpi/ibm/thermal" 2>/dev/null; }
+
+setup_state() {
+  if [ ! -d "$R/sys/devices/platform/thinkpad_acpi" ]; then echo unsupported
+  elif ! command -v thinkfan >/dev/null; then echo no-thinkfan
+  elif [ ! -x "$HELPER" ]; then echo no-helper
+  elif [ "$(cat "$R/sys/module/thinkpad_acpi/parameters/fan_control" 2>/dev/null)" != Y ] \
+    || ! systemctl is-active --quiet thinkfan; then echo needs-enable
+  else echo ready; fi
+}
+
+# a read-only compatibility report: paste it into an issue when asking whether your machine is supported
+doctor() {
+  local bad=0 v h n first dmi=$R/sys/class/dmi/id fan=$R/proc/acpi/ibm/fan thermal=$R/proc/acpi/ibm/thermal
+  local -a temps
+  res() { printf '%-5s %s\n' "$1" "$2"; [ "$1" = FAIL ] && bad=1; }
+  field() { cat "$dmi/$1" 2>/dev/null || echo unknown; }
+  echo "machine:  $(field sys_vendor) $(field product_version) ($(field product_name))"
+  echo "bios:     $(field bios_version)    kernel: $(uname -r)"
+  echo
+  if [ -d "$R/sys/devices/platform/thinkpad_acpi" ]; then res ok "thinkpad_acpi driver is loaded"
+  else res FAIL "thinkpad_acpi is not loaded: this is not a ThinkPad, or the driver is missing (not supported)"; fi
+  if [ -r "$fan" ]; then res ok "/proc/acpi/ibm/fan exists"
+  else res FAIL "/proc/acpi/ibm/fan is missing (the driver exposes no fan control on this machine)"; fi
+  v=$(cat "$R/sys/module/thinkpad_acpi/parameters/fan_control" 2>/dev/null)
+  case "$v" in
+    Y) res ok "fan_control is on" ;;
+    N) res warn "fan_control is off: 'Enable fan control' in the panel reloads the driver with it (needs the helper)" ;;
+    *) res warn "fan_control state unknown" ;;
+  esac
+  if [ -r "$fan" ]; then
+    v=$(sed -n 's/^commands:.*level <level> (<level> is \([0-9]-[0-9]\).*/\1/p' "$fan" | head -1)
+    case "$v" in
+      0-7) res ok "fan levels 0-7 (the plugin's levels 0-8 map onto them; 8 = full speed)" ;;
+      "") res warn "could not read the supported fan levels" ;;
+      *) res warn "fan levels are $v, not 0-7: the profiles assume 0-7" ;;
+    esac
+    v=$(awk '$1=="speed:"{print $2}' "$fan")
+    if [ -z "$v" ]; then res warn "no fan speed reading"
+    elif [ "$v" -gt 20000 ]; then res warn "fan speed reads $v right now (a transient 'no reading', ignored by the plugin)"
+    else res ok "fan speed readable ($v RPM now)"; fi
+  fi
+  if [ -r "$thermal" ]; then
+    read -r -a temps < <(awk '/^temperatures:/{$1=""; print}' "$thermal")
+    n=${#temps[@]}; first=${temps[0]}
+    if [[ $first =~ ^[0-9]+$ ]] && [ "$first" -ge 10 ] && [ "$first" -le 110 ]; then
+      res ok "$n temperature slots; the first (the one the curves follow) reads ${first}C"
+    else res FAIL "the first temperature reads '${first}': the curves follow it, so they cannot work here"; fi
+    echo "      sensors: ${temps[*]}"
+  else res FAIL "/proc/acpi/ibm/thermal is missing: the curves have no sensor"; fi
+  for h in "$R"/sys/class/hwmon/hwmon*; do
+    [ "$(cat "$h/name" 2>/dev/null)" = thinkpad ] || continue
+    [ -e "$h/fan2_input" ] && res warn "this machine has a second fan (fan2): the plugin only drives the first"
+  done
+  if command -v thinkfan >/dev/null; then res ok "thinkfan is installed"; else res warn "thinkfan is not installed (needed; AUR package thinkfan)"; fi
+  if [ -x "$HELPER" ]; then res ok "root helper is installed"; else res warn "root helper is not installed (install-helper.sh or the omarchy-fan-helper package)"; fi
+  echo
+  echo "setup state: $(setup_state)"
+  return $bad
+}
+
+case "${1:-status}" in
+  quiet|balanced|performance)
+    pkexec "$HELPER" set "$1" || exit 1
+    echo "$1" > "$dir/active" ;;
+  manual)
+    n=$2; [ -n "$n" ] || { echo "usage: omarchyfan manual 0-8   (0 is off, 8 is full speed)"; exit 1; }
+    [[ $n =~ ^[0-8]$ ]] || { echo "level must be 0-8 (8 = full speed)"; exit 1; }
+    pkexec "$HELPER" set manual "$n" || exit 1
+    echo "$n" > "$dir/manual-level"
+    echo manual > "$dir/active" ;;
+  follow)
+    case "$2" in
+      on) rm -f "$dir/no-follow" ;;
+      off) touch "$dir/no-follow" ;;
+      *) echo "usage: omarchyfan follow on|off"; exit 1 ;;
+    esac ;;
+  stats)
+    printf 'follow\t%s\n' "$([ -e "$dir/no-follow" ] && echo off || echo on)"
+    printf 'manual\t%s\n' "$(cat "$dir/manual-level" 2>/dev/null || echo 3)"
+    printf 'setup\t%s\n' "$(setup_state)"
+    printf 'profile\t%s\ntemp\t%s\nrpm\t%s\nlevel\t%s\nservice\t%s\n' \
+      "$(active)" "$(temp)" "$(fan_proc speed)" "$(fan_proc level)" "$(systemctl is-active thinkfan)" ;;
+  doctor) doctor; exit $? ;;
+  current) active ;;
+  status)
+    echo "profile: $(active)  temp: $(temp)°C  fan: $(fan_proc speed) RPM  setup: $(setup_state)"
+    systemctl is-active thinkfan ;;
+  help|-h|--help)
+    # show the manual (man omarchyfan); if it isn't installed yet, fall back to a short summary
+    if man -w omarchyfan >/dev/null 2>&1; then exec man omarchyfan; fi
+    echo "usage: omarchyfan quiet|balanced|performance | manual <0-8> | follow on|off | status | current | stats | doctor | help"
+    echo "(the full manual, 'man omarchyfan', is linked in when the fan widget first starts in the bar)" ;;
+  *) echo "usage: omarchyfan quiet|balanced|performance|manual <0-8>|follow on|off|status|doctor   (omarchyfan help for the manual)"; exit 1 ;;
+esac

@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "io.github.gunz0blazin.thinkpad-fan",
   "name": "ThinkPad Fan Control",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "author": "Isaiah Garrison",
   "license": "MIT",
   "description": "ThinkPad fan control for the Omarchy bar: live RPM, history graph, quiet/balanced/performance curves, a manual level slider, and power-profile following.",
@@ -12,6 +12,7 @@
     "displayName": "ThinkPad Fan Control",
     "description": "Fan RPM, history, curve profiles and a manual slider for ThinkPads (thinkfan)",
     "category": "System",
-    "allowMultiple": false
+    "allowMultiple": false,
+    "defaultSection": "right"
   }
 }

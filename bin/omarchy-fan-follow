@@ -4,10 +4,47 @@
 # power-profile change, unless "follow" is off.
 parent=$PPID
 [ -d /sys/devices/platform/thinkpad_acpi ] || exit 0
+
+fan=$(dirname "$(readlink -f "$0")")/omarchyfan
+
+# Put the command on the user's PATH: a symlink in ~/.local/bin (on PATH in Omarchy). Done on every start so it
+# heals after an update or a moved plugin folder, and before the lock so a waiting duplicate still does it.
+# It only replaces a symlink (ours or a dangling one); a real file with that name is left alone.
+link=$HOME/.local/bin/omarchyfan
+if [ -L "$link" ] || [ ! -e "$link" ]; then
+  mkdir -p "$HOME/.local/bin" && ln -sfn "$fan" "$link"
+fi
+
+# ...and the manual page (man omarchyfan), in ~/.local/share/man/man1, which man searches by default. Same rules.
+manpage=$(cd "$(dirname "$fan")/.." && pwd)/man/omarchyfan.1
+mlink=$HOME/.local/share/man/man1/omarchyfan.1
+if [ -f "$manpage" ] && { [ -L "$mlink" ] || [ ! -e "$mlink" ]; }; then
+  mkdir -p "$HOME/.local/share/man/man1" && ln -sfn "$manpage" "$mlink"
+fi
+
+# LEGACY NAMES. The command used to be called omarchy-fan (with a hyphen). The old command and man page keep working
+# for now and will be removed in a future release (delete this block, bin/omarchy-fan and man/omarchy-fan.1 then).
+# A link is created or repaired only if there is nothing there, it points into this plugin (even an old version of
+# it), or it is broken. Someone else's working link, or a real file, is left alone.
+legacy_link() {
+  local l=$1 t=$2
+  mkdir -p "$(dirname "$l")"
+  if [ -L "$l" ]; then
+    case "$(readlink "$l")" in
+      *thinkpad-fan/*) ;;                    # ours: point it at the current file
+      *) [ -e "$l" ] && return ;;            # somebody else's, and it works: hands off
+    esac
+    ln -sfn "$t" "$l"
+  elif [ ! -e "$l" ]; then
+    ln -s "$t" "$l"
+  fi
+}
+legacy_link "$HOME/.local/bin/omarchy-fan" "$(dirname "$fan")/omarchy-fan"
+legacy_link "$HOME/.local/share/man/man1/omarchy-fan.1" "$(cd "$(dirname "$fan")/.." && pwd)/man/omarchy-fan.1"
+
 exec 9> "${XDG_RUNTIME_DIR:-/tmp}/omarchy-fan-follow.lock"
 flock -w 20 9 || exit 0          # one follower at a time; on a shell restart wait for the old one to go
 
-fan=$(dirname "$(readlink -f "$0")")/omarchy-fan
 map() { case "$1" in power-saver) echo quiet ;; performance) echo performance ;; *) echo balanced ;; esac; }
 
 last=$(powerprofilesctl get)

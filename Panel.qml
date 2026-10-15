@@ -11,7 +11,7 @@ Panel {
   ipcTarget: "io.github.gunz0blazin.thinkpad-fan"
 
   readonly property string pluginDir: String(Qt.resolvedUrl(".")).replace("file://", "").replace(/\/$/, "")
-  readonly property string fanBin: pluginDir + "/bin/omarchy-fan"
+  readonly property string fanBin: pluginDir + "/bin/omarchyfan"
   readonly property string helper: "/usr/lib/omarchy-fan/helper"
   // ready | unsupported (not a ThinkPad) | no-thinkfan | no-helper | needs-enable
   readonly property string setupState: info.setup || "ready"
@@ -492,7 +492,7 @@ Panel {
               }
               Text {
                 textFormat: Text.PlainText
-                text: root.followPower ? "Power profile changes reset the fan" : "Fan setting stays until you change it"
+                text: root.followPower ? "Fan profile switches with power profile" : "Fan stays as you set it"
                 color: root.bar.foreground
                 opacity: 0.6
                 font.family: root.bar.fontFamily

@@ -5,11 +5,19 @@
 set -e
 profiles=/usr/share/omarchy-fan/profiles
 
+# A pinned level ignores temperature, which would let a pinned "off" cook the CPU under load. So a pinned level 0-7 carries a
+# safety row: above manual_cap C the fan goes to full speed, and it returns to the pinned level below manual_back C.
+manual_cap=85
+manual_back=80
+
 write_manual() {  # level 0-7, or 8 for full speed
   local lv=$1
-  [ "$lv" = 8 ] && lv='"level full-speed"'
   { sed -e '/^levels:/,$d' -e '1s/.*/# omarchy-fan profile: manual/' "$profiles/balanced.yaml"
-    printf 'levels:\n  - [%s, 0, 32767]\n' "$lv"; } > /etc/thinkfan.yaml.new
+    if [ "$lv" = 8 ]; then
+      printf 'levels:\n  - ["level full-speed", 0, 32767]\n'
+    else
+      printf 'levels:\n  - [%s, 0, %s]\n  - ["level full-speed", %s, 32767]\n' "$lv" "$manual_cap" "$manual_back"
+    fi; } > /etc/thinkfan.yaml.new
   mv /etc/thinkfan.yaml.new /etc/thinkfan.yaml
 }
 
