@@ -223,6 +223,27 @@ added to `tests/fixtures/`.
 
 ## Development and tests
 
+**Run the whole stack with one command**, `tests/full-test.sh`. It runs the right suites in order, prints a pass/fail table
+and exits non-zero if anything failed. The read-only suites run in parallel with the device suites:
+
+    bash tests/full-test.sh              # the base suite: green before every commit/push (about 3.5 minutes, budget 4)
+    bash tests/full-test.sh --quick      # only the read-only suites (about 35 seconds, no fan, no sudo)
+    bash tests/full-test.sh --release    # base + the slow or disruptive suites: before merging to main (about 25 minutes)
+    bash tests/full-test.sh --list       # every suite, its level, its measured time, what it needs, what it proves
+    bash tests/full-test.sh --sync       # first put the installed plugin and helper on origin/dev, so the device runs what was pushed
+
+| Level | Suites | Time | Why |
+|---|---|---|---|
+| **quick** | `check`, `marketplace`, `readme`, `package`, `compat`, `cli-link` | ~35 s | read-only: the repo, docs, package and CLI are consistent |
+| **base** (every commit) | quick + `panel`, `follow`, `helper`, `effect`, `safety-net`, `safety-reload` | ~3.5 min | the plugin loads and works on the device, the fan obeys, every pinned level has its safety row, the driver reload is harmless |
+| **release** (before main) | base + `failsafe`, `uninstall`, `safety-netlive`, `safety-load`, `safety-rip` | ~26 min | slow or disruptive: crash recovery, a clean uninstall, the safety net and heavy load on the real fan, removal under load |
+
+Not in any level, run by hand: `PARTS=suspend bash tests/test-safety.sh` (a real suspend and resume; Omarchy locks the screen, so you
+have to unlock it) and `RIP_HOT=1 PARTS=rip bash tests/test-safety.sh` (the 10-minute worst case: heat the CPU as hot as fan control
+allows, soak it, then remove the plugin).
+
+Every script below still runs on its own (`bash tests/<name>.sh`); `full-test.sh` only organizes them.
+
 All the tests live in `tests/` and are run by hand. They are grouped by how much they touch, so you can pick:
 
 | Tier | What it may touch | Scripts |
@@ -233,7 +254,7 @@ All the tests live in `tests/` and are run by hand. They are grouped by how much
 | **hardware** | changes your fan profile (and, for the follower test, your power profile), then restores them | `tests/test-helper.sh`, `tests/test-effect.sh` |
 | **destructive** | needs sudo; stops and kills thinkfan on purpose, then starts it again; removes the plugin and puts it back; heats the CPU, reloads the driver, suspends the laptop | `tests/test-failsafe.sh`, `tests/test-uninstall.sh`, `tests/test-safety.sh` |
 
-What each one checks:
+What each one checks (`full-test.sh` is the runner above, not a test):
 
 - `check.sh`: manifest validation, shell syntax and executable bits, man-page lint, the curve files' shape, QML lint.
 - `check-marketplace.sh`: this checkout against the marketplace publishing and development rules (manifest fields, id rules,
@@ -254,16 +275,17 @@ What each one checks:
   the root helper rejects bad input without changing anything.
 - `test-effect.sh`: the fan really speeds up, slows down and stops (RPM, not just the requested level). Run it on an
   idle laptop; the fan gets loud for a few seconds.
-- `test-safety.sh`: **the safety test**: what happens when things go wrong on a real ThinkPad, in five parts you can run
-  together (about 30 minutes, plugged in for the full effect) or pick with `PARTS="net reload" bash tests/test-safety.sh`:
-  `net` (a pinned "fan off" goes to full speed at 85°C and back below 80°C, config for every level plus live),
+- `test-safety.sh`: **the safety test**: what happens when things go wrong on a real ThinkPad, in parts you can run together
+  or pick with `PARTS="net reload" bash tests/test-safety.sh`:
+  `net` (config only, ~10 s: every pinned manual level 0-7 gets a full-speed row at 80°C and up, level 8 is a single row),
+  `netlive` (~6 min: a pinned "fan off" really goes to full speed at 85°C under load and drops back below 80°C),
   `reload` (reloading the `thinkpad_acpi` driver leaves the LEDs, battery limits, hotkeys and radios intact),
-  `suspend` (a real suspend and resume: thinkfan, the fan level, the follower and the panel recover),
   `load` (4 busy threads under each profile: the fan must be at full speed before the CPU reaches 90°C), and
-  `rip` (worst case: heat the CPU as hot as fan control allows, soak it, then run the README Uninstall mid-load: the fan
-  must hand back to the firmware within 10 s). A kill switch stops every load and forces full fan whenever any thermal zone is
-  within 2°C of its own power-off trip. Plugged in, a 4-thread load can heat this class of laptop past what the fan can
-  handle; the kill switch ends the run and that is recorded as a known gap, not a failure.
+  `rip` (~2.5 min: the README Uninstall under load: thinkfan stops and the fan returns to the firmware within 10 s).
+  A kill switch stops every load and forces full fan whenever any thermal zone is within 2°C of its own power-off trip.
+  Plugged in, a 4-thread load can heat this class of laptop past what the fan can handle; the kill switch ends the run and
+  that is recorded as a known gap, not a failure. Opt-in parts, not in the default run or in `full-test`: `suspend` (locks
+  the screen) and `RIP_HOT=1` for `rip` (the long worst-case soak).
 - `test-failsafe.sh`: after thinkfan is stopped (cleanly or killed), the fan returns to firmware control once the
   ThinkPad's 120 s fan watchdog fires. Takes about five minutes. A crash leaving the fan at its last level until then,
   and thinkfan not restarting itself, are recorded as known gaps.

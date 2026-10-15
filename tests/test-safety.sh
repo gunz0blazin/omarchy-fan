@@ -1,18 +1,21 @@
 #!/bin/bash
 # Tier: destructive (heats the CPU, reloads the driver, suspends the laptop, and removes then reinstalls the plugin).
-# THE SAFETY TEST: what happens when things go wrong on a real ThinkPad. It is the testing done to release this plugin, in five parts.
-# Run them all (about 30 minutes, plugged in for the full effect) or pick: PARTS="net reload" bash tests/test-safety.sh
-#   net      the manual-mode safety net: a pinned "fan off" goes to full speed at 85 C and back below 80 C (config for every level + live)
+# THE SAFETY TEST: what happens when things go wrong on a real ThinkPad. It is the testing done to release this plugin, in parts.
+# Run the default four (about 25 minutes, plugged in for the full effect) or pick: PARTS="net reload" bash tests/test-safety.sh
+#   net      the manual-mode safety net, config only (about 10 s): every pinned level gets a full-speed row at 80 C and up
+#   netlive  the same on the real fan under load (about 6 min): a pinned "fan off" goes to full speed at 85 C and back below 80 C
 #   reload   reloading the thinkpad_acpi driver (the boot hook / "Enable fan control") leaves LEDs, battery limits, hotkeys, radios intact
-#   suspend  suspend to RAM and resume (real `systemctl suspend`, RTC wake): thinkfan, the fan level, the follower and the panel recover
+#   suspend  OPT-IN (PARTS=suspend): suspend to RAM and resume (real `systemctl suspend`, RTC wake): thinkfan, the fan level, the follower and the panel recover.
+#            Not run by default: Omarchy locks the screen on suspend and you have to unlock it
 #   load     a heavy 4-thread load under each profile: the fan must be at full speed before the CPU reaches 90 C
-#   rip      WORST CASE: heat the CPU as hot as fan control allows, soak it 90 s, then run the README Uninstall mid-load
+#   rip      run the README Uninstall mid-load and check the fan goes back to the firmware within 10 s (about 2 min incl. reinstall).
+#            RIP_HOT=1 makes it the WORST CASE: heat the CPU as hot as fan control allows, soak it 90 s, then remove (about 10 min)
 # A kill switch stops every load and forces full fan when ANY thermal zone is within STOP_MARGIN (default 2) C of its own critical
 # (kernel power-off) trip, or the CPU is at 99 C: on the T480s the zone B0D4 powers the machine off at 98 C. Everything is restored
 # at the end, also if interrupted. Needs: passwordless sudo, an idle laptop, network (only to reinstall after `rip`).
 # Known hardware limit: plugged in, a 4-thread load can heat this class of laptop past what the fan can handle; the kill switch ends the
 # run, and that is recorded as a known gap, not a failure. On battery the CPU is clock-limited and the load part stays cool.
-PARTS=${PARTS:-"net reload suspend load rip"}
+PARTS=${PARTS:-"net netlive reload load rip"}     # suspend is opt-in only: it locks the screen, so it is not in the default run or in full-test
 want() { case " $PARTS " in *" $1 "*) return 0;; esac; return 1; }
 # `rip` removes the plugin folder this script would otherwise run from: work from a scratch copy of the repo
 if want rip && [ -z "$OMARCHYFAN_SAFETY_COPY" ]; then
@@ -97,6 +100,9 @@ if want net; then
   done
   "$CLI" manual 8 >/dev/null; sleep 2
   t "manual 8 (full speed) is a single full-speed row" "$(grep -c '^  - \[' /etc/thinkfan.yaml)" 1
+fi
+if want netlive; then
+  echo; echo "== netlive: the manual-mode safety net on the real fan under load"
   cool; "$CLI" manual 0 >/dev/null; sleep 4
   t "live: the fan is pinned off before the load" "$(fan_level)" 0
   start_load 2; t0=$SECONDS; engaged=""; smax=0; off_ok=1; pk=0
@@ -127,7 +133,8 @@ if want reload; then
     echo "input=$(grep -E '^N: Name=.*(ThinkPad|TPPS|TrackPoint)' /proc/bus/input/devices | sort | tr '\n' ' ')"
     # (the deprecated attributes hotkey_enable / bluetooth_enable are not read: reading them makes the kernel log a warning)
     for a in hotkey_mask hotkey_all_mask hotkey_recommended_mask hotkey_poll_freq wwan_enable; do [ -r "$TA/$a" ] && echo "attr $a=$(cat "$TA/$a" 2>/dev/null | tr '\n' ' ')"; done
-    echo "rfkill=$(rfkill list 2>/dev/null | awk '/^[0-9]+:/{n=$2" "$3} /Soft blocked/{printf "%s soft=%s; ", n, $3}')"
+    # one line per radio, so the order they are listed in (it changes when the driver re-registers its switch) does not matter
+    rfkill list 2>/dev/null | awk '/^[0-9]+:/{n=$2" "$3} /Soft blocked/{print "rfkill " n " soft=" $3}'
     echo "bluetooth_powered=$(bluetoothctl show 2>/dev/null | awk '/Powered:/{print $2}')"
   }
   B=$(mktemp); snap | sort > "$B"
@@ -210,14 +217,17 @@ fi
 
 # ====================================================================================================== rip
 if want rip; then
-  echo; echo "== rip: worst case: heat as hot as fan control allows, soak ${RIP_SOAK}s, then the README Uninstall mid-load"
+  RIP_HOT=${RIP_HOT:-0}
+  echo; echo "== rip: run the README Uninstall under load$([ "$RIP_HOT" = 1 ] && echo ", WORST CASE (hot soak ${RIP_SOAK}s)")"
   if [ ! -e "$ROOT/.git" ]; then info "rip skipped: needs a git checkout to reinstall from"
   else
     block=$(awk '/^## Uninstall/{on=1;next} /^## /{on=0} on && /^    [^ ]/{sub(/^    /,""); print}' "$ROOT/README.md")
     script=$(mktemp); echo "$block" | sed -e 's/\bsudo /sudo -n /g' -e 's/pacman -Rns/pacman -Rns --noconfirm/' -e 's#\(omarchy plugin remove [^ ]*\)#\1 --yes#' > "$script"
-    cool
-    # thinkfan runs a "bang-bang" curve: fan OFF until the sensor passes 94 C, then FULL SPEED until it is back under 91 C
-    sudo -n tee /etc/thinkfan.yaml >/dev/null <<'YAML'
+    go=1
+    if [ "$RIP_HOT" = 1 ]; then
+      cool
+      # thinkfan runs a "bang-bang" curve: fan OFF until the sensor passes 94 C, then FULL SPEED until it is back under 91 C
+      sudo -n tee /etc/thinkfan.yaml >/dev/null <<'YAML'
 # omarchy-fan profile: test-hot (written by test-safety.sh)
 sensors:
   - tpacpi: /proc/acpi/ibm/thermal
@@ -228,34 +238,37 @@ levels:
   - [0, 0, 94]
   - ["level full-speed", 91, 32767]
 YAML
-    sudo -n systemctl restart thinkfan; sleep 3
-    info "fan off (level $(fan_level), $(fan_rpm) RPM), thinkfan running the bang-bang curve; starting 2 busy threads"
-    start_load 2; t0=$SECONDS; tripped=0; reached=0
-    while [ $((SECONDS - t0)) -lt 420 ]; do guard || break; [ "$(hot)" -ge 94 ] && { reached=1; break; }; sleep 2; done
-    if [ $reached = 0 ]; then stop_load; gap "rip: the CPU did not reach 94C hot (on battery or well cooled), or the safety stop ended the heat-up: the plugin was not removed"
-    else
-      info "reached 94C hottest after $((SECONDS - t0))s (sensor $(cpu_temp)C): soaking ${RIP_SOAK}s"
-      ss=$SECONDS; lo=999; hi=0
-      while [ $((SECONDS - ss)) -lt "$RIP_SOAK" ]; do guard || break; h=$(hot); [ "$h" -lt "$lo" ] && lo=$h; [ "$h" -gt "$hi" ] && hi=$h; sleep 2; done
-      if [ $tripped = 1 ]; then stop_load; gap "rip: the safety stop ended the soak: the plugin was not removed"
+      sudo -n systemctl restart thinkfan; sleep 3
+      start_load 2; t0=$SECONDS; tripped=0; reached=0
+      while [ $((SECONDS - t0)) -lt 420 ]; do guard || break; [ "$(hot)" -ge 94 ] && { reached=1; break; }; sleep 2; done
+      if [ $reached = 0 ]; then stop_load; go=0; gap "rip: the CPU did not reach 94C hot (on battery or well cooled), or the safety stop ended the heat-up: the plugin was not removed"
       else
-        ok "rip: held ${lo}-${hi}C (hottest reading) for ${RIP_SOAK}s with the fan off/full bang-bang"
-        pre=$(hot); echo "   removing the plugin at ${pre}C hottest (sensor $(cpu_temp)C), load still on"; sync
-        tu=$SECONDS; ( bash "$script" > /dev/null 2>&1; echo $? > "$script.rc" ) & ub=$!
-        mx=$pre; stopped=""; auto=""; end=$((SECONDS + RIP_WINDOW))
-        while [ $SECONDS -lt "$end" ]; do
-          guard || break; h=$(hot); [ "$h" -gt "$mx" ] && mx=$h
-          [ -z "$stopped" ] && [ "$(systemctl is-active thinkfan)" != active ] && stopped=$((SECONDS - tu))
-          [ -z "$auto" ] && [ "$(fan_level)" = auto ] && auto=$((SECONDS - tu))
-          sleep 1
-        done
-        stop_load; wait $ub 2>/dev/null
-        t "rip: the README Uninstall block exited 0 under full load" "$(cat "$script.rc" 2>/dev/null)" 0
-        t "rip: thinkfan stopped within 10 s ($([ -n "$stopped" ] && echo "${stopped}s"))" "$([ -n "$stopped" ] && [ "$stopped" -le 10 ] && echo yes || echo no)" yes
-        t "rip: the fan went back to the firmware ('auto') within 10 s ($([ -n "$auto" ] && echo "${auto}s"))" "$([ -n "$auto" ] && [ "$auto" -le 10 ] && echo yes || echo no)" yes
-        t "rip: the CPU never reached the safety stop after the removal (highest ${mx}C hottest, ${STOP_MARGIN}C stop margin)" "$tripped" 0
-        t "rip: the plugin is really gone" "$(plugin_state | grep -c .)" 0
+        info "reached 94C hottest after $((SECONDS - t0))s: soaking ${RIP_SOAK}s"; ss=$SECONDS; lo=999; hi=0
+        while [ $((SECONDS - ss)) -lt "$RIP_SOAK" ]; do guard || break; h=$(hot); [ "$h" -lt "$lo" ] && lo=$h; [ "$h" -gt "$hi" ] && hi=$h; sleep 2; done
+        if [ $tripped = 1 ]; then stop_load; go=0; gap "rip: the safety stop ended the soak: the plugin was not removed"; else ok "rip: held ${lo}-${hi}C for ${RIP_SOAK}s with the fan off/full bang-bang"; fi
       fi
+    else
+      # fast version: the plugin keeps control of the fan (Balanced) while 2 threads load the CPU for 25 s, then it is removed
+      "$CLI" balanced >/dev/null; sleep 3; start_load 2; t0=$SECONDS; tripped=0
+      while [ $((SECONDS - t0)) -lt 25 ]; do guard || break; sleep 1; done
+      [ $tripped = 1 ] && { go=0; stop_load; gap "rip: the safety stop ended the warm-up: the plugin was not removed"; }
+    fi
+    if [ $go = 1 ]; then
+      pre=$(hot); echo "   removing the plugin at ${pre}C hottest (sensor $(cpu_temp)C, fan level $(fan_level)), load still on"; sync
+      tu=$SECONDS; ( bash "$script" > /dev/null 2>&1; echo $? > "$script.rc" ) & ub=$!
+      mx=$pre; stopped=""; auto=""; window=$([ "$RIP_HOT" = 1 ] && echo "$RIP_WINDOW" || echo 15); end=$((SECONDS + window))
+      while [ $SECONDS -lt "$end" ]; do
+        guard || break; h=$(hot); [ "$h" -gt "$mx" ] && mx=$h
+        [ -z "$stopped" ] && [ "$(systemctl is-active thinkfan)" != active ] && stopped=$((SECONDS - tu))
+        [ -z "$auto" ] && [ "$(fan_level)" = auto ] && auto=$((SECONDS - tu))
+        sleep 1
+      done
+      stop_load; wait $ub 2>/dev/null
+      t "rip: the README Uninstall block exited 0 under load" "$(cat "$script.rc" 2>/dev/null)" 0
+      t "rip: thinkfan stopped within 10 s ($([ -n "$stopped" ] && echo "${stopped}s"))" "$([ -n "$stopped" ] && [ "$stopped" -le 10 ] && echo yes || echo no)" yes
+      t "rip: the fan went back to the firmware ('auto') within 10 s ($([ -n "$auto" ] && echo "${auto}s"))" "$([ -n "$auto" ] && [ "$auto" -le 10 ] && echo yes || echo no)" yes
+      t "rip: the CPU never reached the safety stop after the removal (highest ${mx}C hottest)" "$tripped" 0
+      t "rip: the plugin is really gone" "$(plugin_state | grep -c .)" 0
     fi
     rm -f "$script" "$script.rc"
   fi
