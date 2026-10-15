@@ -281,8 +281,6 @@ and exits non-zero if anything failed. The read-only suites run in parallel with
     bash tests/full-test.sh --list       # every suite, its level, its measured time, what it needs, what it proves
     bash tests/full-test.sh --sync       # first put the installed plugin and helper on origin/dev, so the device runs what was pushed
 
-To run the commit check automatically before every commit: `git config core.hooksPath .githooks` (skip once with `git commit --no-verify`).
-
 | Level | Suites | Time | Why |
 |---|---|---|---|
 | **commit** (every commit) | `check`, `marketplace`, `readme`, `compat` | ~10 s | read-only: the code parses and runs against fake machines, the manifest and marketplace rules hold, the README still matches the code |
