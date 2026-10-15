@@ -34,14 +34,17 @@ Temperatures are the ThinkPad's CPU sensor reading.
 
 | Profile | Fan leaves "off" at | Fan is at full speed above | Feel |
 |---|---|---|---|
-| Quiet | about 65°C | about 92°C | Silent longest, runs warmest |
+| Quiet | about 65°C | about 85°C | Silent longest, runs warmest |
 | Balanced | about 56°C | about 85°C | Smooth curve, the default |
 | Performance | never off (level 1 minimum) | about 74°C | Cooler, spins up early |
 
 These are the files in [`profiles/`](profiles/), one row per fan level as `[level, lower temp, upper temp]`. Manual
-mode pins a single level instead of following a curve, with one safety net: if the CPU reaches 85°C the fan jumps to
-full speed, and it goes back to your level once the CPU is below 80°C. So a pinned "off" or low level can't cook the
-CPU under load. (Full speed, level 8, is already the top.)
+mode pins a single level instead of following a curve.
+
+**Safety net.** Whatever you pick, the fan goes to full speed once the CPU reaches 85°C (Performance already does at
+74°C), and drops back below it as the CPU cools. So a pinned "off" or low level, or the Quiet curve, can't leave a hot
+CPU under-cooled. This only controls the fan: a sustained all-core load can still heat this class of laptop past what
+its fan can handle, and then the CPU slows itself down, which is normal for the hardware.
 
 ## Command line (CLI)
 

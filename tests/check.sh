@@ -41,6 +41,14 @@ for y in profiles/*.yaml; do
   grep -q '^levels:' "$y" && grep -q 'tpacpi: /proc/acpi/ibm/fan' "$y" && ok "profile $y has levels and the fan line" || bad "profile $y has levels and the fan line"
 done
 
+# safety net: every profile must put the fan at full speed by 86 C (the kernel powers the machine off at 98 C, and a load can
+# heat this class of laptop by ~1 C per second). The last numbered level's upper limit is where full speed takes over.
+for y in profiles/*.yaml; do
+  top=$(awk '/^  - \[[0-9]+, *[0-9]+, *[0-9]+\]/{gsub(/[][,]/," "); last=$4} END{print last}' "$y")
+  grep -q 'level full-speed' "$y" && [ -n "$top" ] && [ "$top" -le 86 ] \
+    && ok "profile $y reaches full speed by ${top}C (limit 86C)" || bad "profile $y must have a full-speed row, entered by 86C at the latest (found: ${top:-none})"
+done
+
 qml=$(command -v qmllint || ls /usr/lib/qt6/bin/qmllint 2>/dev/null | head -1)
 if [ -n "$qml" ]; then
   "$qml" Panel.qml 2>&1 | grep -qiE 'syntax|expected' && bad "qmllint Panel.qml: no syntax errors" || ok "qmllint Panel.qml: no syntax errors"
