@@ -110,6 +110,8 @@ for name in ("quiet", "balanced", "performance"):
 
 # ---- 7. consistency: one plugin id, one repository URL
 ids = set(re.findall(r"io\.github\.[A-Za-z0-9._-]*[A-Za-z0-9]", readme + (manpage or "").replace("\\-", "-")))   # man source writes a hyphen as \\-
+m = re.search(r"^## What's new in (\d+\.\d+\.\d+)", readme, re.M)
+out("PASS" if m and m.group(1) == manifest["version"] else "FAIL", f"the README's \"What's new in {m.group(1) if m else 'none'}\" matches the manifest version ({manifest['version']})")
 out("PASS" if ids <= {manifest["id"]} else "FAIL", f"every plugin id in the README and man page is the manifest id ({manifest['id']}); found {sorted(ids) or 'none'}")
 url = re.search(r'^url="([^"]+)"', pkgbuild, re.M)
 add = re.findall(r"omarchy plugin add (https://\S+?)(?:\.git)?(?:\s|$)", readme)

@@ -28,6 +28,43 @@ Prefer to do step 2 yourself? Run `install-helper.sh` from the plugin folder
 - **Follow power profile**: switch the power profile and the fan profile follows (power-saver is Quiet, balanced is
   Balanced, performance is Performance). Turn it off and your fan setting stays put until you change it
 
+## What's new in 1.2.0
+
+*Compared with 1.0.0, the first release.*
+
+**New**
+
+- **A short command, with a manual.** `omarchyfan` replaces `omarchy-fan`: `omarchyfan help` (or `man omarchyfan`) opens the
+  manual, and the plugin puts the command on your PATH by itself. The old `omarchy-fan` still works for now as a deprecated
+  alias.
+- **`omarchyfan doctor`.** A read-only check of whether your ThinkPad is supported (driver, fan levels, temperature sensor,
+  second fan), plus a [Hardware report](#report-a-new-thinkpad-model) form for adding new models.
+- **One-line install, and a README that starts with it.** New [Updating](#updating) section, and an
+  [Uninstall](#uninstall) that now removes everything the plugin put on your system: the helper, thinkfan, the curve file, your
+  saved choices and the build cache.
+- **The icon is suggested on the right side of the bar** when you add the plugin, a clearer label under "Follow power profile",
+  and a sharper panel picture.
+
+**Safer**
+
+- **A pinned fan level can't leave a hot CPU under-cooled.** Manual levels 0 to 7 now jump to full speed at 85°C and drop back to
+  your level below 80°C, so "fan off" is no longer unconditional.
+- **Quiet reaches full speed at 85°C** (it was 92°C), the same point as Balanced. Below about 77°C it behaves exactly as before.
+- **Checked on a real ThinkPad:** reloading the driver (which the boot hook does) leaves LEDs, battery limits, hotkeys and radios
+  untouched, and when thinkfan stops or is disabled, which is what removing the plugin does, the firmware takes the fan back
+  immediately.
+
+**Upgrading from 1.0.0.** The plugin updates itself, but the fan helper is a separate system package, so the two "Safer" changes
+above need it re-installed once. After the [update](#updating), run:
+
+    bash ~/.config/omarchy/plugins/io.github.gunz0blazin.thinkpad-fan/install-helper.sh
+
+then press your fan profile once more in the panel (that copies the new curve into place). Everything else works straight after
+the update and a shell restart.
+
+*For developers:* one command, `bash tests/full-test.sh`, runs the whole test stack in about three minutes; see
+[For developers and testers](#for-developers-and-testers).
+
 ## The profiles
 
 Temperatures are the ThinkPad's CPU sensor reading.
