@@ -1,6 +1,6 @@
 #!/bin/bash
 # Tier: local. The plugin links its command and man page into ~/.local on start. Runs the follower in a throwaway HOME
-# (never touches yours) and checks the linking rules. Needs a ThinkPad (the follower exits early elsewhere).
+# (never touches yours) and checks the linking rules, and that the follower leaves no dbus-monitor behind. Needs a ThinkPad (the follower exits early elsewhere).
 # No root, no fan changes.
 . "$(dirname "$(readlink -f "$0")")/lib.sh"
 is_thinkpad || suite_skip "not a ThinkPad (the follower exits before it makes any link)"
@@ -39,6 +39,53 @@ rm -rf "$h"
 h=$(newhome); mkdir -p "$h/.local/bin"; ln -s /bin/true "$h/.local/bin/omarchyfan"; run "$h"
 t "a link pointing somewhere else is replaced" "$(readlink "$h/.local/bin/omarchyfan")" "$cli"
 rm -rf "$h"
+
+echo "-- the follower leaves no dbus-monitor behind (a stray one used to survive a hard kill and live for days)"
+if ! command -v dbus-monitor >/dev/null || ! command -v pgrep >/dev/null; then skip "monitor cleanup (needs dbus-monitor and pgrep)"
+else
+  MON="dbus-monitor --system type='signal',interface='org.freedesktop.DBus.Properties',sender='net.hadess.PowerProfiles'"
+  # start a follower in its own scratch home; sets fpid and mpid (its dbus-monitor, which is a direct child) and fhome
+  start_follower() {
+    fhome=$(newhome)
+    HOME=$fhome XDG_RUNTIME_DIR=$fhome/run bash "$follow" >/dev/null 2>&1 &
+    fpid=$!; mpid=""
+    for _ in $(seq 1 30); do mpid=$(pgrep -P "$fpid" -f "$MON" | head -1); [ -n "$mpid" ] && break; sleep 0.2; done
+  }
+  gone() { local _; for _ in $(seq 1 15); do kill -0 "$1" 2>/dev/null || return 0; sleep 0.2; done; return 1; }   # up to 3 s
+
+  start_follower
+  t "a follower started in a scratch home has its own dbus-monitor" "$([ -n "$mpid" ] && echo yes || echo no)" yes
+  kill -TERM "$fpid"; { wait "$fpid"; } 2>/dev/null
+  t "after a clean stop (TERM) its monitor is gone" "$(gone "$mpid" && echo yes || echo no)" yes
+  rm -rf "$fhome"
+
+  if command -v setpriv >/dev/null; then
+    start_follower
+    kill -KILL "$fpid"; { wait "$fpid"; } 2>/dev/null
+    t "after a hard kill (KILL, nothing can clean up) its monitor is gone too" "$(gone "$mpid" && echo yes || echo no)" yes
+    rm -rf "$fhome"
+  else
+    skip "hard-kill cleanup (setpriv is not installed; the start-up cleanup below still heals a leftover)"
+  fi
+
+  # an orphan, as an old follower's hard kill left it: started detached, so it is re-parented away from any follower
+  before=$(pgrep -u "$UID" -f "$MON" | tr '\n' ' ')
+  ( setsid dbus-monitor --system "type='signal',interface='org.freedesktop.DBus.Properties',sender='net.hadess.PowerProfiles',member='PropertiesChanged'" >/dev/null 2>&1 & )
+  sleep 0.5
+  stale=""; for p in $(pgrep -u "$UID" -f "$MON"); do case " $before " in *" $p "*) ;; *) stale=$p ;; esac; done
+  if [ -z "$stale" ]; then skip "orphan cleanup (could not plant an orphaned monitor)"
+  elif [ "$(ps -o comm= -p "$(ps -o ppid= -p "$stale" | tr -d ' ')" 2>/dev/null)" != systemd ]; then
+    kill "$stale" 2>/dev/null; skip "orphan cleanup (this session's orphans are not re-parented to systemd, so the follower would leave it alone)"
+  else
+    start_follower
+    t "a follower starting up removes an orphaned monitor left by an earlier one" "$(gone "$stale" && echo yes || echo no)" yes
+    t "...and keeps its own monitor" "$(kill -0 "$mpid" 2>/dev/null && echo yes || echo no)" yes
+    keep=yes; for p in $before; do kill -0 "$p" 2>/dev/null || keep=no; done
+    t "...and leaves every monitor that has a live parent alone (such as the plugin's own)" "$keep" yes
+    kill -TERM "$fpid"; { wait "$fpid"; } 2>/dev/null; rm -rf "$fhome"
+    kill "$stale" 2>/dev/null
+  fi
+fi
 
 # ======================================================================================================================
 # LEGACY: delete everything from here to the end marker when the old omarchy-fan name is removed (see bin/omarchy-fan,

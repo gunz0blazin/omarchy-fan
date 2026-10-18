@@ -3,9 +3,21 @@
 Control your ThinkPad's fan from the Omarchy bar. One icon opens a panel styled like the built-in wifi and bluetooth
 panels, and it follows your theme.
 
+> **Developers and testers: see [DEVELOPING.md](DEVELOPING.md)** for the test suite (the quick check for every commit and
+> the full check before a merge), how to run it, and how to contribute. Everything on this page is for using the plugin.
+
 ## Install
 
     omarchy plugin add https://github.com/gunz0blazin/omarchy-fan.git --enable
+
+## Uninstall
+
+    omarchy plugin remove io.github.gunz0blazin.thinkpad-fan; rm -rf ~/.local/bin/omarchyfan ~/.local/bin/omarchy-fan ~/.local/share/man/man1/omarchyfan.1 ~/.local/share/man/man1/omarchy-fan.1 ~/.config/omarchy/fan ~/.cache/yay/thinkfan; sudo systemctl disable --now thinkfan; sudo pacman -Rns $(pacman -Qq omarchy-fan-helper thinkfan thinkfan-debug 2>/dev/null); sudo rm -f /etc/thinkfan.yaml
+
+Removes the plugin and everything it installed, thinkfan included. What each part does is under
+[What the uninstall removes](#what-the-uninstall-removes).
+
+## After installing
 
 Omarchy shows its "plugins run unsandboxed" warning and asks where in the bar to put the icon (the right side is
 suggested). Then:
@@ -28,7 +40,7 @@ Prefer to do step 2 yourself? Run `install-helper.sh` from the plugin folder
 - **Follow power profile**: switch the power profile and the fan profile follows (power-saver is Quiet, balanced is
   Balanced, performance is Performance). Turn it off and your fan setting stays put until you change it
 
-## What's new in 1.2.0
+## What's new in 1.2.2
 
 *Compared with 1.0.0, the first release.*
 
@@ -42,6 +54,13 @@ Prefer to do step 2 yourself? Run `install-helper.sh` from the plugin folder
 - **One-line install, and a README that starts with it.** New [Updating](#updating) section, and an
   [Uninstall](#uninstall) that now removes everything the plugin put on your system: the helper, thinkfan, the curve file, your
   saved choices and the build cache.
+- **`omarchyfan report`.** One command for testers: the `doctor` checks, a short fan test (it asks first and puts your profile back),
+  and a short summary to paste into a [Hardware report](#report-a-new-thinkpad-model). `doctor` also tells you whether the kernel
+  drives a second fan along with the first.
+- **No stray `dbus-monitor` processes.** The power-profile follower used to leave one behind whenever it was killed outright (for example by a
+  hard shell restart); they piled up over days. It now ties its monitor to its own life and clears any leftover when it starts.
+- **An "Update fan control" button.** When a plugin update ships a newer fan helper, the panel says so and updates it in one
+  press, and `omarchyfan reapply` puts your profile back through it.
 - **The icon is suggested on the right side of the bar** when you add the plugin, a clearer label under "Follow power profile",
   and a sharper panel picture.
 
@@ -55,15 +74,11 @@ Prefer to do step 2 yourself? Run `install-helper.sh` from the plugin folder
   immediately.
 
 **Upgrading from 1.0.0.** The plugin updates itself, but the fan helper is a separate system package, so the two "Safer" changes
-above need it re-installed once. After the [update](#updating), run:
+above need it re-installed once. After the [update](#updating) and the shell restart, the panel shows **Update fan control**: press
+it and enter your sudo password. (Or run `install-helper.sh` from the plugin folder yourself.) It re-applies your fan profile with
+the new curves at the end. Everything else works straight after the update.
 
-    bash ~/.config/omarchy/plugins/io.github.gunz0blazin.thinkpad-fan/install-helper.sh
-
-then press your fan profile once more in the panel (that copies the new curve into place). Everything else works straight after
-the update and a shell restart.
-
-*For developers:* one command, `bash tests/full-test.sh`, runs the whole test stack in about three minutes; see
-[For developers and testers](#for-developers-and-testers).
+*For developers:* the developer docs and the test suite moved to their own page, [DEVELOPING.md](DEVELOPING.md).
 
 ## The profiles
 
@@ -92,6 +107,8 @@ The panel calls the same script you can use from a terminal:
     omarchyfan follow on|off                   # follow the power profile or not
     omarchyfan status
     omarchyfan doctor                          # is this machine supported? (read-only report)
+    omarchyfan reapply                         # put the active profile back through the helper (after a helper update)
+    omarchyfan report                          # doctor + a short fan test + a summary to paste into a Hardware report
     omarchyfan help                            # opens the manual
 
 The full reference is a man page: `omarchyfan help` or `man omarchyfan` (the source is `man/omarchyfan.1`).
@@ -116,8 +133,9 @@ one-line notice that the name is old. **It will be removed in a future release**
 
 To check your machine, run `omarchyfan doctor`. It only reads, and prints one line per check (`ok`, `warn` or `FAIL`):
 the model, whether the `thinkpad_acpi` driver and its fan control are there, the fan levels, whether the fan speed and
-the temperature the curves follow can be read, and whether there is a second fan (the plugin only drives the first). A
-`FAIL` means it cannot work on that machine.
+the temperature the curves follow can be read, and whether there is a second fan (and whether the kernel sets its level along with the first). A
+`FAIL` means it cannot work on that machine. `omarchyfan report` runs the same checks and adds a short fan test; it is what
+to run when [reporting a new model](#report-a-new-thinkpad-model).
 
 | Model | Status |
 |---|---|
@@ -132,22 +150,25 @@ the temperature the curves follow can be read, and whether there is a second fan
 The Omarchy shell doesn't reload plugin code by itself, so the restart (the bar redraws for a second) is what makes the
 new version run.
 
-## Uninstall
+The fan helper is a separate system package, so an update can come with a newer one. When it does, the panel shows
+**Update fan control**: press it, and enter your sudo password in the terminal that opens (it is the same installer as
+the first time, and it re-applies your fan profile with the new curves at the end). Until you do, the fan keeps working
+as before. `omarchyfan doctor` also tells you when the helper is older than the plugin.
 
-This removes everything the plugin put on your system, and nothing else:
+## What the uninstall removes
 
-    omarchy plugin remove io.github.gunz0blazin.thinkpad-fan
-    rm -f ~/.local/bin/omarchyfan ~/.local/share/man/man1/omarchyfan.1   # the links the plugin made
-    rm -f ~/.local/bin/omarchy-fan ~/.local/share/man/man1/omarchy-fan.1 # ...and the legacy ones
-    rm -rf ~/.config/omarchy/fan                 # your saved choices (profile, manual level, follow switch)
-    sudo systemctl disable --now thinkfan        # gives the fan back to the firmware
-    sudo pacman -Rns omarchy-fan-helper $(pacman -Qq thinkfan thinkfan-debug 2>/dev/null)
-    sudo rm -f /etc/thinkfan.yaml                # the curve the helper wrote
-    rm -rf ~/.cache/yay/thinkfan                 # the build cache from installing thinkfan
+The [Uninstall](#uninstall) command removes everything the plugin put on your system, and nothing else. Paste it into a
+terminal as one line; it asks you to confirm the plugin removal and for your sudo password. Step by step:
 
-- The `pacman` line removes the helper, its polkit policy, curves and drop-ins, and also `thinkfan` and the
-  `thinkfan-debug` package the AUR build adds, plus any dependency nothing else needs. **If you used thinkfan before
-  this plugin and want to keep it, delete `$(pacman -Qq thinkfan thinkfan-debug 2>/dev/null)` from that line.**
+- `omarchy plugin remove ...`: takes the plugin out of the bar and deletes its folder.
+- `rm -rf ...`: the `omarchyfan` command and man-page links the plugin made (and the legacy `omarchy-fan` ones), your
+  saved choices in `~/.config/omarchy/fan` (profile, manual level, follow switch), and the build cache from installing thinkfan.
+- `sudo systemctl disable --now thinkfan`: gives the fan back to the firmware.
+- `sudo pacman -Rns ...`: removes the helper package (the helper, its polkit policy, curves and drop-ins), `thinkfan` and
+  the `thinkfan-debug` package the AUR build adds, plus any dependency nothing else needs. Whatever is already gone is
+  skipped, so the line also finishes a half-done uninstall. **If you used thinkfan before this plugin and want to keep it,
+  take `thinkfan thinkfan-debug` out of that part.**
+- `sudo rm -f /etc/thinkfan.yaml`: the curve the helper wrote.
 - If you had your own `/etc/thinkfan.yaml` before, the helper saved it as `/etc/thinkfan.yaml.omarchy-fan.bak`: put
   it back with `sudo mv /etc/thinkfan.yaml.omarchy-fan.bak /etc/thinkfan.yaml` (that file is only there in that case).
 
@@ -231,101 +252,25 @@ Worth knowing:
 - With thinkfan running, the ThinkPad's firmware still has its own thermal protection, and every profile reaches full
   speed well below the CPU's critical temperature.
 
-## Credits and license
-
-MIT, see [LICENSE](LICENSE). The panel is built from the stock Omarchy UI components so it matches the built-in panels.
-Fan curves are driven by [thinkfan](https://github.com/vmatare/thinkfan).
-
----
-
-# For developers and testers
-
-> **You don't need anything below to use the plugin.** This part is for people who want to report a new ThinkPad model,
-> run the test suite, or work on the code.
-
 ## Report a new ThinkPad model
 
 This is how a model gets added to the table above.
 
-1. Install the plugin and run `omarchyfan doctor`. It only reads files.
-2. Optional, but it lets the model be added as a test fixture: run
-   `cat /proc/acpi/ibm/fan /proc/acpi/ibm/thermal; cat /sys/module/thinkpad_acpi/parameters/fan_control`.
-3. Optional, on an idle and cool laptop: clone the repo and run `bash tests/test-helper.sh` and
-   `bash tests/test-effect.sh`. They briefly change your fan (it gets loud for a few seconds) and restore your profile.
-4. Open a [Hardware report](https://github.com/gunz0blazin/omarchy-fan/issues/new?template=hardware-report.yml) issue
-   and paste the output into the form. Say whether each profile audibly changes the fan.
+1. Install the plugin, and with the laptop idle and cool run `omarchyfan report`. It runs the `doctor` checks, then asks
+   before it runs the fan at full speed, a middle level and off (about 2 minutes, the fan gets loud) and puts your profile
+   back. `omarchyfan report --read-only` skips the fan test. It prints about eight lines.
+2. Open a [Hardware report](https://github.com/gunz0blazin/omarchy-fan/issues/new?template=hardware-report.yml) issue
+   and paste those lines into the form. Say whether each profile audibly changes the fan.
+3. Optional, but it lets the model be added as a test fixture: attach `~/omarchyfan-report.txt`, which `report` wrote. It
+   holds the raw fan and temperature files and contains no serial number.
 
-A model is marked "Tested" once a report shows `doctor` with no `FAIL` and passing hardware tests, and its raw files are
-added to `tests/fixtures/`.
+A model is marked "Tested" once a report shows `result  PASS` (`doctor` with no `FAIL` and the fan test passing), and its raw
+files are added to `tests/fixtures/`. A report that only ran the `doctor` checks says `DOCTOR OK, fan test skipped`; that is
+useful, but it is not enough to mark a model "Tested".
 
-## Development and tests
+Working on the code or running the tests? See [DEVELOPING.md](DEVELOPING.md).
 
-**Run the whole stack with one command**, `tests/full-test.sh`. It runs the right suites in order, prints a pass/fail table
-and exits non-zero if anything failed. The read-only suites run in parallel with the device suites:
+## Credits and license
 
-    bash tests/full-test.sh              # the base suite: green before every commit/push (about 3 minutes, budget 4)
-    bash tests/full-test.sh --quick      # only the read-only suites (about 35 seconds, no fan, no sudo)
-    bash tests/full-test.sh --release    # base + a clean uninstall/reinstall + the marketplace scanner: before merging to main (about 8 minutes)
-    bash tests/full-test.sh --list       # every suite, its level, its measured time, what it needs, what it proves
-    bash tests/full-test.sh --sync       # first put the installed plugin and helper on origin/dev, so the device runs what was pushed
-
-| Level | Suites | Time | Why |
-|---|---|---|---|
-| **quick** | `check`, `marketplace`, `readme`, `package`, `compat`, `cli-link` | ~35 s | read-only: the repo, the marketplace rules, the README, the package and the CLI are consistent |
-| **base** (every commit) | quick + `panel`, `follow`, `helper`, `effect`, `safety-net`, `safety-reload`, `safety-handoff` | ~3 min | the plugin loads and works on the device, the fan obeys, every pinned level has its safety row, the driver reload is harmless, the firmware takes over when the plugin goes |
-| **release** (before main) | base + `uninstall`, `scan` | ~8 min | a clean uninstall that leaves nothing behind, and the marketplace's own security scanner on the pushed commit |
-
-Not run by `full-test` (run it by hand with `--only failsafe`): `failsafe`, which kills thinkfan and waits two minutes for the
-firmware watchdog. Nothing in the stack loads or heats the CPU.
-
-Every script below still runs on its own (`bash tests/<name>.sh`); `full-test.sh` only organizes them.
-
-All the tests live in `tests/` and are run by hand. They are grouped by how much they touch, so you can pick:
-
-| Tier | What it may touch | Scripts |
-|---|---|---|
-| **static** | reads files only | `tests/check.sh`, `tests/check-marketplace.sh`, `tests/test-readme.sh`, `tests/test-package.sh`, `tests/test-compat.sh` |
-| **local** | a throwaway home directory | `tests/test-cli-link.sh` |
-| **shell** | briefly uses, and for one test disables and re-enables, the plugin in your running bar | `tests/test-panel.sh`, `tests/test-follow.sh` |
-| **hardware** | changes your fan profile (and, for the follower test, your power profile), then restores them | `tests/test-helper.sh`, `tests/test-effect.sh` |
-| **destructive** | needs sudo; stops thinkfan or reloads the driver for a few seconds, or removes the plugin and puts it back | `tests/test-safety.sh`, `tests/test-uninstall.sh`, `tests/test-failsafe.sh` |
-
-What each one checks (`full-test.sh` is the runner above, not a test):
-
-- `check.sh`: manifest validation, shell syntax and executable bits, man-page lint, the curve files' shape, QML lint.
-- `check-marketplace.sh`: this checkout against the marketplace publishing and development rules (manifest fields, id rules,
-  README sections and disclosures, symlinks, the security-baseline patterns). With `MARKETPLACE_SCAN=1` (the `scan` suite) it also runs
-  the marketplace's own scanner on the pushed commit: no findings, no capability beyond the four already accepted.
-- `test-readme.sh`: the README and man page against the code: documented subcommands exist, documented paths are real,
-  the numbers in the profile tables match the curve files, every test script is listed, links resolve.
-- `test-package.sh`: builds the root-helper package in a scratch folder and checks exactly what it installs (files,
-  owners, modes, the polkit policy, no sudoers rule). Nothing is installed.
-- `test-compat.sh`: `omarchyfan doctor` and `stats` against fake `/proc` and `/sys` trees in `tests/fixtures/` (the tested
-  T480s, plus a second fan, `fan_control` off, a 65535 speed glitch, missing files and a non-ThinkPad). Runs on any
-  machine; to add a model, see `tests/fixtures/README.md`.
-- `test-cli-link.sh`: the command and man-page links the plugin makes, in a fake home. Includes the legacy `omarchy-fan` checks.
-- `test-panel.sh`: the panel opens and closes (also with Escape and toggle), the shell log shows no errors from the
-  plugin, and the plugin survives being disabled and re-enabled with its icon back in the same place. `SKIP_CYCLE=1`
-  skips the disable/enable part.
-- `test-follow.sh`: the power-profile follower. Don't plug or unplug the charger while it runs.
-- `test-helper.sh`: each curve applies, manual levels reach the kernel, nine rapid restarts don't break thinkfan, and
-  the root helper rejects bad input without changing anything.
-- `test-effect.sh`: the fan really speeds up, slows down and stops (RPM, not just the requested level). Run it on an
-  idle laptop; the fan gets loud for a few seconds.
-- `test-safety.sh`: **the safety test**, three fast checks (about a minute, nothing is loaded or heated) that the plugin leaves a user's
-  laptop in a safe, working state; run all or pick with `PARTS="net handoff" bash tests/test-safety.sh`:
-  `net` (every pinned manual level 0-7 gets a full-speed safety row at 80°C and up; level 8 is a single full-speed row),
-  `reload` (reloading the `thinkpad_acpi` driver, which the boot hook does, leaves the LEDs, battery limits, hotkeys, input
-  devices and radios exactly as they were, and the fan still answers), and
-  `handoff` (when thinkfan stops or is disabled, which is what removing the plugin does, the firmware takes the fan back within 10 s).
-- `test-failsafe.sh`: after thinkfan is stopped (cleanly or killed), the fan returns to firmware control once the
-  ThinkPad's 120 s fan watchdog fires. Takes about five minutes. A crash leaving the fan at its last level until then,
-  and thinkfan not restarting itself, are recorded as known gaps.
-- `test-uninstall.sh`: runs the README's own Uninstall commands, then checks nothing of the plugin is left on the system
-  (packages, files, links, saved state, services, the bar entry, anything else with its name), and installs the plugin
-  again afterwards. Needs sudo, network and an idle laptop; takes a few minutes.
-
-Every script prints `passed`, `failed` and `skipped` counts, so a skipped check can't pass for a real one. A script that
-cannot run on this machine (not a ThinkPad, no sudo, no plugin in the bar) exits with status 77 and says why. The
-scripts also work on older versions of the repo (they find the command under either name), which is how a release can
-be compared with the one before it. `tests/lib.sh` holds the shared helpers.
+MIT, see [LICENSE](LICENSE). The panel is built from the stock Omarchy UI components so it matches the built-in panels.
+Fan curves are driven by [thinkfan](https://github.com/vmatare/thinkfan).

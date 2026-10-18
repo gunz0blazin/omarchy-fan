@@ -30,7 +30,19 @@ t "AMD-style: temp 52" "$(stat_ t14-amd temp)" 52
 t "AMD-style: rpm 2400" "$(stat_ t14-amd rpm)" 2400
 d=$(doc p1-dual-fan)
 t "dual fan: still supported (exit 0)" "$(rc p1-dual-fan)" 0
-t "dual fan: warns that only the first fan is driven" "$(has "$d" 'warn +this machine has a second fan')" yes
+t "dual fan: both fans follow the level when the kernel controls fan2" "$(has "$d" 'ok +second fan \(fan2\): the kernel sets each fan level on both fans')" yes
+t "dual fan: no mirror note when fan2 reads 0" "$(has "$d" 'probably one fan reported twice')" no
+d=$(doc dual-fan-mirror)
+t "mirrored fan2: still supported (exit 0)" "$(rc dual-fan-mirror)" 0
+t "mirrored fan2: says it can't tell from the kernel log" "$(has "$d" "warn +second fan \(fan2\) is reported; the kernel log doesn't say")" yes
+t "mirrored fan2: notes one fan reported twice" "$(has "$d" 'fan2 reads exactly like fan1 \(3268 RPM\)')" yes
+d=$(doc dual-fan-no-ctl)
+t "fan2 without control: warns only the first follows" "$(has "$d" "warn +second fan \(fan2\) is reported, but the kernel can't set its level")" yes
+d=$(doc dual-fan-read-only)
+t "fan2 readable only ('support enabled'): warns only the first follows" "$(has "$d" "warn +second fan \(fan2\) is reported, but the kernel can't set its level")" yes
+d=$(doc dual-fan-ctl-lost)
+t "fan2 control lost after boot ('Couldn't set 2nd fan level'): warns, no ok" "$(has "$d" 'warn +second fan \(fan2\): the kernel failed to set its level')" yes
+t "fan2 control lost after boot: the earlier 'enabled' line doesn't count" "$(has "$d" 'ok +second fan')" no
 d=$(doc fan-control-off)
 t "fan_control off: supported, with a warning (exit 0)" "$(rc fan-control-off)" 0
 t "fan_control off: warns" "$(has "$d" 'warn +fan_control is off')" yes
@@ -41,6 +53,16 @@ t "65535 speed: doctor explains it (exit 0)" "$(has "$d" 'warn +fan speed reads 
 d=$(doc odd-levels)
 t "levels 0-9: warns the profiles assume 0-7" "$(has "$d" 'warn +fan levels are 0-9')" yes
 
+echo "-- the helper package version (doctor says when the installed helper is older than the plugin's)"
+if [ -x /usr/lib/omarchy-fan/helper ]; then
+  d=$(OMARCHYFAN_HELPER_VERSION=0.0.1-1 OMARCHYFAN_ROOT=$FX/t480s "$CLI" doctor 2>&1)
+  t "an older installed helper: doctor warns, with both versions" "$(has "$d" 'warn +root helper 0\.0\.1-1 is older than the [0-9.]+-[0-9]+ this plugin ships')" yes
+  t "an older installed helper: doctor says what to press" "$(has "$d" "Update fan control")" yes
+  d=$(OMARCHYFAN_HELPER_VERSION=99.0-1 OMARCHYFAN_ROOT=$FX/t480s "$CLI" doctor 2>&1)
+  t "a newer installed helper: no warning, the version is shown" "$(has "$d" 'ok +root helper is installed \(99\.0-1\)')" yes
+else
+  skip "helper version checks (the root helper is not installed on this machine)"
+fi
 echo "-- broken or missing pieces: clear failures, no crash"
 d=$(doc bad-first-sensor)
 t "first sensor unusable: FAIL, exit 1" "$(rc bad-first-sensor)" 1

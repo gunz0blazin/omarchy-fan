@@ -15,10 +15,15 @@ echo "==> omarchy-fan-helper (built from $here/packaging/PKGBUILD)"
 echo "It installs: /usr/lib/omarchy-fan/helper, a polkit policy, the three fan curves, and a modprobe + systemd drop-in."
 echo "Read it first if you like: $here/helper/omarchy-fan-helper"
 echo
-(cd "$here/packaging" && makepkg -si)
+# -f: a second run (after a cancelled install, or the panel's Update pressed twice) rebuilds instead of stopping at "already built"
+(cd "$here/packaging" && makepkg -sif)
 
 echo
 echo "==> enabling fan control"
 pkexec /usr/lib/omarchy-fan/helper enable
+
+echo
+echo "==> applying your fan profile with the installed curves"
+"$here/bin/omarchyfan" reapply || true
 echo
 echo "Done. Open the fan icon in the bar."
