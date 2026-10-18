@@ -47,8 +47,19 @@ flock -w 20 9 || exit 0          # one follower at a time; on a shell restart wa
 
 map() { case "$1" in power-saver) echo quiet ;; performance) echo performance ;; *) echo balanced ;; esac; }
 
+# Heal first. A follower that was killed outright (SIGKILL runs no trap, e.g. a hard shell restart) leaves its dbus-monitor behind,
+# re-parented to systemd, and that monitor only exits when it next writes, which for PowerProfiles can take days. We hold the lock,
+# so no follower of ours owns a monitor that is orphaned like that. One whose parent is a live follower, or anything but
+# systemd, is never touched.
+for p in $(pgrep -u "$UID" -f "dbus-monitor --system type='signal',interface='org.freedesktop.DBus.Properties',sender='net.hadess.PowerProfiles'" 2>/dev/null); do
+  pp=$(ps -o ppid= -p "$p" 2>/dev/null | tr -d ' ')
+  [ -n "$pp" ] && [ "$(ps -o comm= -p "$pp" 2>/dev/null)" = systemd ] && kill "$p" 2>/dev/null
+done
+
 last=$(powerprofilesctl get)
-exec {mon}< <(stdbuf -oL dbus-monitor --system "type='signal',interface='org.freedesktop.DBus.Properties',sender='net.hadess.PowerProfiles',member='PropertiesChanged'" 2>/dev/null 9>&-)   # 9>&-: the monitor must not inherit the lock, or an orphan would hold it
+# setpriv --pdeathsig: the kernel stops the monitor whenever this follower dies, SIGKILL included (the EXIT trap below cannot run then)
+pre=(); command -v setpriv >/dev/null && setpriv --pdeathsig TERM true 2>/dev/null && pre=(setpriv --pdeathsig TERM)   # (probed first: if it ever refuses, we run the monitor as before)
+exec {mon}< <(stdbuf -oL "${pre[@]}" dbus-monitor --system "type='signal',interface='org.freedesktop.DBus.Properties',sender='net.hadess.PowerProfiles',member='PropertiesChanged'" 2>/dev/null 9>&-)   # 9>&-: the monitor must not inherit the lock, or an orphan would hold it
 monpid=$!
 trap 'kill $monpid 2>/dev/null' EXIT
 trap 'exit 0' TERM INT HUP

@@ -28,7 +28,7 @@ marketplace|check-marketplace.sh||commit|1|240|-|the marketplace publishing, dev
 readme|test-readme.sh||commit|1|240|-|README, DEVELOPING.md and the man page match the code, the paths, the curve numbers, the test list
 package|test-package.sh||quick|6|300|makepkg|the root-helper package: exact files, owners, modes, polkit policy, no sudoers rule
 compat|test-compat.sh||commit|7|240|-|doctor and stats over the T480s capture and 13 fake machines (other ThinkPads, broken and non-ThinkPad)
-cli-link|test-cli-link.sh||quick|31|240|-|the command and man-page links the plugin makes, in a fake home
+cli-link|test-cli-link.sh||quick|40|240|-|the command and man-page links the plugin makes, in a fake home; the follower leaves no dbus-monitor behind
 panel|test-panel.sh||base|31|420|plugin in the bar|the panel opens/closes (also Escape), no shell-log errors, survives disable and re-enable
 follow|test-follow.sh||base|31|300|plugin in the bar|the power-profile follower reacts, stays single, leaves AC alone
 helper|test-helper.sh||base|25|420|helper, thinkfan|each curve applies, manual levels reach the kernel, rapid restarts, bad input rejected

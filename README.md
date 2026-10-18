@@ -57,6 +57,8 @@ Prefer to do step 2 yourself? Run `install-helper.sh` from the plugin folder
 - **`omarchyfan report`.** One command for testers: the `doctor` checks, a short fan test (it asks first and puts your profile back),
   and a short summary to paste into a [Hardware report](#report-a-new-thinkpad-model). `doctor` also tells you whether the kernel
   drives a second fan along with the first.
+- **No stray `dbus-monitor` processes.** The power-profile follower used to leave one behind whenever it was killed outright (for example by a
+  hard shell restart); they piled up over days. It now ties its monitor to its own life and clears any leftover when it starts.
 - **An "Update fan control" button.** When a plugin update ships a newer fan helper, the panel says so and updates it in one
   press, and `omarchyfan reapply` puts your profile back through it.
 - **The icon is suggested on the right side of the bar** when you add the plugin, a clearer label under "Follow power profile",
